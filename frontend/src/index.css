@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Global resets & base ────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #0f1117;
+  color: #e2e8f0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track  { background: #161b27; }
+::-webkit-scrollbar-thumb  { background: #2d3748; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4a5568; }
+
+/* ── Utility layer ──────────────────────────────────────────────────── */
+@layer components {
+  .card {
+    @apply bg-surface-card border border-surface-border rounded-xl p-4;
+  }
+
+  .badge-safe     { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-safe-light    text-safe-dark; }
+  .badge-elevated { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-elevated-light text-elevated-dark; }
+  .badge-high     { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-high-light     text-high-dark; }
+  .badge-critical { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-critical-light text-critical-dark; }
+
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full mr-1.5;
+  }
+}

@@ -1,1 +1,6 @@
-# Project dependencies
+fastapi
+uvicorn[standard]
+sqlalchemy
+python-dotenv
+google-generativeai
+pydantic>=2.0

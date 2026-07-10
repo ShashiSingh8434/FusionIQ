@@ -1,1 +1,143 @@
-[]
+{
+  "meta": {
+    "description": "FusionIQ demo scenario — single source of truth for the simulator. All values are locked. Simulator interpolates between keyframes and adds ±2 ppm noise.",
+    "zone_primary": "zone-alpha",
+    "zone_primary_name": "Zone Alpha — Compressor Hall",
+    "background_zones": ["zone-beta", "zone-gamma"],
+    "gas_threshold_ppm": 100,
+    "time_scale": "1 real second = 2 scenario seconds (full arc in ~80 real seconds)"
+  },
+  "zones": [
+    { "id": "zone-alpha", "name": "Zone Alpha — Compressor Hall", "x": 2, "y": 1, "hazard_class": "HIGH_RISK" },
+    { "id": "zone-beta",  "name": "Zone Beta — Control Room",     "x": 0, "y": 0, "hazard_class": "LOW_RISK"  },
+    { "id": "zone-gamma", "name": "Zone Gamma — Storage Bay",     "x": 4, "y": 2, "hazard_class": "MEDIUM_RISK" }
+  ],
+  "keyframes": [
+    {
+      "time_seconds": 0,
+      "label": "0:00 — Plant nominal, all clear",
+      "zone_alpha": {
+        "gas_ppm": 40,
+        "gas_threshold": 100,
+        "hot_work_permit": false,
+        "confined_space_entry": false,
+        "maintenance_active": false,
+        "workers_in_zone": ["W-101"],
+        "expected_score": 8,
+        "expected_level": "Safe"
+      },
+      "zone_beta":  { "gas_ppm": 12, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-201", "W-202"], "expected_score": 5,  "expected_level": "Safe" },
+      "zone_gamma": { "gas_ppm": 25, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-301"], "expected_score": 10, "expected_level": "Safe" }
+    },
+    {
+      "time_seconds": 50,
+      "label": "0:50 — Gas rising, but still no permit activity",
+      "zone_alpha": {
+        "gas_ppm": 82,
+        "gas_threshold": 100,
+        "hot_work_permit": false,
+        "confined_space_entry": false,
+        "maintenance_active": false,
+        "workers_in_zone": ["W-101"],
+        "expected_score": 22,
+        "expected_level": "Safe"
+      },
+      "zone_beta":  { "gas_ppm": 14, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-201", "W-202"], "expected_score": 6,  "expected_level": "Safe" },
+      "zone_gamma": { "gas_ppm": 28, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-301"], "expected_score": 11, "expected_level": "Safe" }
+    },
+    {
+      "time_seconds": 80,
+      "label": "1:20 — Hot-work permit issued while gas is elevated",
+      "zone_alpha": {
+        "gas_ppm": 85,
+        "gas_threshold": 100,
+        "hot_work_permit": true,
+        "permit_id": "P-2026-042",
+        "confined_space_entry": false,
+        "maintenance_active": false,
+        "workers_in_zone": ["W-101", "W-102"],
+        "expected_score": 41,
+        "expected_level": "Elevated"
+      },
+      "zone_beta":  { "gas_ppm": 11, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-201", "W-202"], "expected_score": 5,  "expected_level": "Safe" },
+      "zone_gamma": { "gas_ppm": 30, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-301"], "expected_score": 12, "expected_level": "Safe" }
+    },
+    {
+      "time_seconds": 110,
+      "label": "1:50 — Worker enters confined space with hot-work permit still active",
+      "zone_alpha": {
+        "gas_ppm": 88,
+        "gas_threshold": 100,
+        "hot_work_permit": true,
+        "permit_id": "P-2026-042",
+        "confined_space_entry": true,
+        "confined_space_worker": "W-102",
+        "maintenance_active": false,
+        "workers_in_zone": ["W-101", "W-102"],
+        "expected_score": 68,
+        "expected_level": "High"
+      },
+      "zone_beta":  { "gas_ppm": 13, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-201", "W-202"], "expected_score": 6,  "expected_level": "Safe" },
+      "zone_gamma": { "gas_ppm": 27, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-301"], "expected_score": 11, "expected_level": "Safe" }
+    },
+    {
+      "time_seconds": 140,
+      "label": "2:20 — CRITICAL: Maintenance team starts activity — all 3 risk factors active with elevated gas",
+      "zone_alpha": {
+        "gas_ppm": 91,
+        "gas_threshold": 100,
+        "hot_work_permit": true,
+        "permit_id": "P-2026-042",
+        "confined_space_entry": true,
+        "confined_space_worker": "W-102",
+        "maintenance_active": true,
+        "maintenance_team": ["W-103", "W-104"],
+        "workers_in_zone": ["W-101", "W-102", "W-103", "W-104"],
+        "expected_score": 89,
+        "expected_level": "Critical"
+      },
+      "zone_beta":  { "gas_ppm": 15, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-201", "W-202"], "expected_score": 7,  "expected_level": "Safe" },
+      "zone_gamma": { "gas_ppm": 29, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-301"], "expected_score": 12, "expected_level": "Safe" }
+    },
+    {
+      "time_seconds": 160,
+      "label": "2:40 — Explanation panel fires, recommended actions shown",
+      "note": "Simulator holds Critical state. Gemini explanation + RAG incident card should render in the UI by this point.",
+      "zone_alpha": {
+        "gas_ppm": 91,
+        "gas_threshold": 100,
+        "hot_work_permit": true,
+        "permit_id": "P-2026-042",
+        "confined_space_entry": true,
+        "confined_space_worker": "W-102",
+        "maintenance_active": true,
+        "maintenance_team": ["W-103", "W-104"],
+        "workers_in_zone": ["W-101", "W-102", "W-103", "W-104"],
+        "expected_score": 89,
+        "expected_level": "Critical"
+      },
+      "zone_beta":  { "gas_ppm": 15, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-201", "W-202"], "expected_score": 7,  "expected_level": "Safe" },
+      "zone_gamma": { "gas_ppm": 29, "hot_work_permit": false, "confined_space_entry": false, "maintenance_active": false, "workers_in_zone": ["W-301"], "expected_score": 12, "expected_level": "Safe" }
+    }
+  ],
+  "workers": [
+    { "id": "W-101", "name": "Rajesh Kumar",   "role": "Shift Supervisor" },
+    { "id": "W-102", "name": "Anil Sharma",    "role": "Maintenance Technician — confined space trained" },
+    { "id": "W-103", "name": "Deepak Patel",   "role": "Maintenance Lead" },
+    { "id": "W-104", "name": "Suresh Verma",   "role": "Maintenance Technician" },
+    { "id": "W-201", "name": "Priya Nair",     "role": "Control Room Operator" },
+    { "id": "W-202", "name": "Kavita Singh",   "role": "Control Room Operator" },
+    { "id": "W-301", "name": "Mohammed Iqbal", "role": "Storage Bay Supervisor" }
+  ],
+  "permits": [
+    {
+      "id": "P-2026-042",
+      "type": "HOT_WORK",
+      "zone_id": "zone-alpha",
+      "description": "Welding repair on compressor coupling flange",
+      "issued_at_seconds": 80,
+      "conflicts_with": "elevated_gas_readings",
+      "status": "ACTIVE"
+    }
+  ]
+}
