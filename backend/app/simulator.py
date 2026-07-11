@@ -17,6 +17,7 @@ get_current_plant_state() → dict
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -57,16 +58,10 @@ _REAL_DURATION_S: float = _SCENARIO_DURATION_S / _TIME_SCALE
 # Simulator state — module-level singleton, thread-safe with a lock
 # ---------------------------------------------------------------------------
 
-_start_time: float = time.monotonic()
+_running: bool = False
+_elapsed_scenario_s: float = 0.0
+_last_real_time: Optional[float] = None
 _lock = threading.Lock()
-
-
-def _reset_timer() -> None:
-    """Restart the scenario clock from t=0. Called automatically when the
-    scenario wraps around, ensuring an infinite loop for the live demo."""
-    global _start_time
-    with _lock:
-        _start_time = time.monotonic()
 
 
 # ---------------------------------------------------------------------------
@@ -102,8 +97,15 @@ def _interpolate_zone(
     ppm_prev = float(prev_zone.get("gas_ppm", 0))
     ppm_next = float(next_zone.get("gas_ppm", ppm_prev))
     ppm_interp = _lerp(ppm_prev, ppm_next, t)
-    # Add small ±2 ppm noise to look like a real sensor
-    ppm_noisy = round(ppm_interp + random.uniform(-2.0, 2.0), 1)
+    
+    # Use deterministic noise when paused, dynamic when running.
+    seed_str = f"{scenario_elapsed:.2f}_{zone_key}"
+    h = hashlib.md5(seed_str.encode('utf-8'))
+    seed_val = int(h.hexdigest(), 16) % (2**32)
+    local_random = random.Random(seed_val)
+    noise = local_random.uniform(-2.0, 2.0)
+    
+    ppm_noisy = round(ppm_interp + noise, 1)
     ppm_noisy = max(0.0, ppm_noisy)  # can't be negative
 
     threshold = float(prev_zone.get("gas_threshold", _SCENARIO["meta"]["gas_threshold_ppm"]))
@@ -170,57 +172,25 @@ def _find_surrounding_keyframes(scenario_elapsed: float):
 # ---------------------------------------------------------------------------
 
 
-def get_elapsed_seconds() -> float:
-    """Return real elapsed seconds since the scenario started (or last reset)."""
-    with _lock:
-        return time.monotonic() - _start_time
-
-
 def get_scenario_elapsed_seconds() -> float:
     """
     Return scenario-time seconds elapsed, wrapping at scenario duration so the
-    demo loops automatically.
+    demo loops automatically. Updates elapsed time if the simulator is running.
     """
-    real_elapsed = get_elapsed_seconds()
-    scenario_elapsed = (real_elapsed * _TIME_SCALE) % _SCENARIO_DURATION_S
-    return round(scenario_elapsed, 2)
+    global _elapsed_scenario_s, _last_real_time
+    with _lock:
+        if _running:
+            now = time.monotonic()
+            if _last_real_time is not None:
+                delta = (now - _last_real_time) * _TIME_SCALE
+                _elapsed_scenario_s = (_elapsed_scenario_s + delta) % _SCENARIO_DURATION_S
+            _last_real_time = now
+        return round(_elapsed_scenario_s, 2)
 
 
 def get_current_plant_state() -> Dict[str, Any]:
     """
     Return the current interpolated plant state for all zones.
-
-    Return shape
-    ------------
-    {
-        "timestamp": "2026-...",
-        "simulator_elapsed_seconds": 47.3,         # scenario-time clock
-        "zones": [
-            {
-                "id": "zone-alpha",
-                "name": "...",
-                "x": 2, "y": 1,
-                "hazard_class": "HIGH_RISK",
-                "gas_ppm": 86.4,
-                "gas_threshold": 100,
-                "hot_work_permit": true,
-                "permit_id": "P-2026-042",
-                "confined_space_entry": false,
-                "confined_space_worker": null,
-                "maintenance_active": false,
-                "maintenance_team": [],
-                "workers_in_zone": ["W-101", "W-102"],
-                "workers": [            # enriched with name/role from scenario
-                    {"id": "W-101", "name": "Rajesh Kumar", "role": "..."},
-                    ...
-                ],
-                "active_permits": [     # permit objects for this zone (if any)
-                    {"id": "P-2026-042", "type": "HOT_WORK", "status": "ACTIVE", ...}
-                ]
-            },
-            ...
-        ]
-    }
     """
     scenario_elapsed = get_scenario_elapsed_seconds()
     kf_prev, kf_next, t = _find_surrounding_keyframes(scenario_elapsed)
@@ -280,13 +250,55 @@ def get_current_plant_state() -> Dict[str, Any]:
             "active_permits": active_permits,
         })
 
+    with _lock:
+        run_status = _running
+
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "simulator_elapsed_seconds": scenario_elapsed,
+        "simulator_running": run_status,
         "zones": zones_state,
     }
 
 
+def start_simulator() -> None:
+    """Start or resume the simulation."""
+    global _running, _last_real_time
+    with _lock:
+        if not _running:
+            _running = True
+            _last_real_time = time.monotonic()
+
+
+def pause_simulator() -> None:
+    """Pause the simulation, freezing the current elapsed time."""
+    global _running, _last_real_time, _elapsed_scenario_s
+    with _lock:
+        if _running:
+            now = time.monotonic()
+            if _last_real_time is not None:
+                delta = (now - _last_real_time) * _TIME_SCALE
+                _elapsed_scenario_s = (_elapsed_scenario_s + delta) % _SCENARIO_DURATION_S
+            _running = False
+            _last_real_time = None
+
+
 def reset_simulator() -> None:
-    """Restart the scenario from t=0. Useful for testing or re-running the demo."""
-    _reset_timer()
+    """Reset simulation elapsed time to 0.0."""
+    global _elapsed_scenario_s, _last_real_time
+    with _lock:
+        _elapsed_scenario_s = 0.0
+        if _running:
+            _last_real_time = time.monotonic()
+        else:
+            _last_real_time = None
+
+
+def get_simulator_status() -> Dict[str, Any]:
+    """Get the running status and current time of the simulator."""
+    with _lock:
+        return {
+            "running": _running,
+            "elapsed_seconds": round(_elapsed_scenario_s, 2)
+        }
+

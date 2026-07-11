@@ -33,7 +33,14 @@ from app.models import (
     HealthResponse,
     PlantStateResponse,
 )
-from app.simulator import get_current_plant_state, get_scenario_elapsed_seconds, reset_simulator
+from app.simulator import (
+    get_current_plant_state,
+    get_scenario_elapsed_seconds,
+    reset_simulator,
+    start_simulator,
+    pause_simulator,
+)
+
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +134,21 @@ async def simulator_reset():
     """Reset the simulator clock so the demo plays from the beginning."""
     reset_simulator()
     return {"status": "reset", "message": "Simulator clock reset to t=0."}
+
+
+@app.post("/simulator/start", tags=["Simulator"], summary="Start or resume the simulator")
+async def simulator_start():
+    """Start or resume the simulator clock."""
+    start_simulator()
+    return {"status": "running", "message": "Simulator clock started."}
+
+
+@app.post("/simulator/pause", tags=["Simulator"], summary="Pause the simulator")
+async def simulator_pause():
+    """Pause the simulator clock, freezing elapsed time."""
+    pause_simulator()
+    return {"status": "paused", "message": "Simulator clock paused."}
+
 
 
 # ---------------------------------------------------------------------------

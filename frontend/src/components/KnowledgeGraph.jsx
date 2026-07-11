@@ -25,7 +25,7 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
-const BACKEND_URL = 'http://localhost:8000'
+// BACKEND_URL is now passed dynamically as a prop
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -174,14 +174,15 @@ const DEFAULT_EDGES = [
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function KnowledgeGraph({ currentLevel = 'Safe' }) {
+export default function KnowledgeGraph({ currentLevel = 'Safe', backendUrl }) {
   const [nodes, setNodes] = useState(DEFAULT_NODES)
   const [edges, setEdges] = useState(DEFAULT_EDGES)
   const [status, setStatus] = useState('loading') // 'loading' | 'ok' | 'error'
 
   const fetchGraph = useCallback(async () => {
+    if (!backendUrl) return
     try {
-      const res = await fetch(`${BACKEND_URL}/knowledge-graph/zone-alpha`)
+      const res = await fetch(`${backendUrl}/knowledge-graph/zone-alpha`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
 
@@ -213,7 +214,7 @@ export default function KnowledgeGraph({ currentLevel = 'Safe' }) {
     } catch {
       setStatus('error')
     }
-  }, [])
+  }, [backendUrl])
 
   useEffect(() => {
     fetchGraph()

@@ -23,7 +23,77 @@ import { useEffect, useRef, useState } from 'react'
 import HeatmapGrid from './components/HeatmapGrid'
 import KnowledgeGraph from './components/KnowledgeGraph'
 
-const BACKEND_URL = 'http://localhost:8000'
+// SettingsModal — Dynamic Backend URL Settings
+function SettingsModal({ backendUrl, onSave, onClose }) {
+  const [urlInput, setUrlInput] = useState(backendUrl)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave(urlInput.trim())
+    onClose()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in text-white"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-2xl border border-surface-border p-6 shadow-2xl modal-enter space-y-4"
+        style={{ background: '#0d1117' }}
+      >
+        <div className="flex items-center justify-between border-b border-surface-border pb-3">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <span>⚙</span> Connection Settings
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg border border-surface-border text-surface-muted hover:text-white hover:border-white/30 transition-all flex items-center justify-center text-sm"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[11px] font-semibold text-surface-muted uppercase tracking-wider block">
+            Backend API URL
+          </label>
+          <input
+            type="text"
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            className="w-full bg-surface border border-surface-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+            placeholder="http://localhost:8000"
+            required
+          />
+          <p className="text-[10px] text-surface-muted leading-normal">
+            Enter your deployed Render web service URL (e.g., <code className="font-mono">https://fusioniq-backend.onrender.com</code>).
+            Changes are saved to local storage.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-surface-border">
+          <button
+            type="button"
+            onClick={() => setUrlInput('http://localhost:8000')}
+            className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-border text-surface-muted hover:text-white transition-all"
+          >
+            Reset Default
+          </button>
+          <button
+            type="submit"
+            className="text-xs font-bold px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all shadow"
+          >
+            Save Settings
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -84,7 +154,7 @@ function usePoll(url, intervalMs, enabled = true) {
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-function Header({ connected, lastPoll, primaryLevel }) {
+function Header({ connected, lastPoll, primaryLevel, onSettingsOpen }) {
   const levelCol = levelColor(primaryLevel)
   return (
     <header className="sticky top-0 z-20 border-b border-surface-border bg-surface/80 backdrop-blur-md">
@@ -111,15 +181,22 @@ function Header({ connected, lastPoll, primaryLevel }) {
           </div>
         )}
 
-        {/* Connection + clock */}
+        {/* Connection + settings */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-surface-card border border-surface-border rounded-full px-3 py-1.5">
+          <div className="flex items-center gap-1.5 bg-surface-card border border-surface-border rounded-full px-3 py-1.5 animate-fade-in">
             <span className={`status-dot ${connected ? 'bg-safe animate-pulse-slow' : 'bg-critical'}`} />
             <span className="text-xs font-medium text-slate-300 hidden sm:inline">
               {connected ? 'Backend live' : 'Offline'}
             </span>
             {lastPoll && <span className="text-xs text-surface-muted ml-1">· {lastPoll}</span>}
           </div>
+          <button
+            onClick={onSettingsOpen}
+            className="w-8 h-8 rounded-full border border-surface-border bg-surface-card hover:bg-surface-border/50 text-slate-300 hover:text-white transition-all flex items-center justify-center text-sm shadow"
+            title="Settings"
+          >
+            ⚙
+          </button>
         </div>
       </div>
     </header>
@@ -638,11 +715,15 @@ export default function App() {
   const [lastPoll, setLastPoll] = useState(null)
   const [reportModal, setReportModal] = useState(null)   // { report, level, score } | null
   const [reportLoading, setReportLoading] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [backendUrl, setBackendUrl] = useState(() => {
+    return localStorage.getItem('FUSIONIQ_BACKEND_URL') || import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  })
 
-  const { data: plantState, error: plantError } = usePoll(`${BACKEND_URL}/plant-state`, 2000)
-  const { data: hazardData, error: hazardError } = usePoll(`${BACKEND_URL}/hazard-score`, 2000)
-  const { data: explanation } = usePoll(`${BACKEND_URL}/hazard-explanation`, 4000)
-  const { data: incidentData } = usePoll(`${BACKEND_URL}/similar-incident`, 6000)
+  const { data: plantState, error: plantError } = usePoll(`${backendUrl}/plant-state`, 2000)
+  const { data: hazardData, error: hazardError } = usePoll(`${backendUrl}/hazard-score`, 2000)
+  const { data: explanation } = usePoll(`${backendUrl}/hazard-explanation`, 4000)
+  const { data: incidentData } = usePoll(`${backendUrl}/similar-incident`, 6000)
 
   useEffect(() => {
     if (plantState || hazardData) setLastPoll(new Date().toLocaleTimeString())
@@ -655,7 +736,7 @@ export default function App() {
   const handleGenerateReport = async () => {
     setReportLoading(true)
     try {
-      const res = await fetch(`${BACKEND_URL}/incident-report`)
+      const res = await fetch(`${backendUrl}/incident-report`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setReportModal({ report: data.report, level: data.level, score: data.score })
@@ -663,6 +744,30 @@ export default function App() {
       alert(`Report generation failed: ${err.message}`)
     } finally {
       setReportLoading(false)
+    }
+  }
+
+  const handleToggleStartPause = async () => {
+    if (!plantState) return
+    const endpoint = plantState.simulator_running ? 'pause' : 'start'
+    try {
+      const res = await fetch(`${backendUrl}/simulator/${endpoint}`, { method: 'POST' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch (err) {
+      alert(`Failed to ${endpoint} simulation: ${err.message}`)
+    }
+  }
+
+  const handleRestart = async () => {
+    try {
+      // Reset scenario clock to 0
+      const resReset = await fetch(`${backendUrl}/simulator/reset`, { method: 'POST' })
+      if (!resReset.ok) throw new Error(`HTTP Reset ${resReset.status}`)
+      // Start/Resume if paused
+      const resStart = await fetch(`${backendUrl}/simulator/start`, { method: 'POST' })
+      if (!resStart.ok) throw new Error(`HTTP Start ${resStart.status}`)
+    } catch (err) {
+      alert(`Failed to restart simulation: ${err.message}`)
     }
   }
 
@@ -683,17 +788,62 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <Header connected={connected} lastPoll={lastPoll} primaryLevel={primaryLevel} />
+      <Header
+        connected={connected}
+        lastPoll={lastPoll}
+        primaryLevel={primaryLevel}
+        onSettingsOpen={() => setSettingsOpen(true)}
+      />
 
       <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 py-4 space-y-4">
 
-        {/* ── Scenario clock bar ─────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-1">
-          <ScenarioClock elapsedSeconds={plantState?.simulator_elapsed_seconds} />
-          <div className="flex items-center gap-2 text-[10px] text-surface-muted">
-            <span>Poll interval: 2s</span>
-            <span>·</span>
-            <span>1 real s = 2 scenario s</span>
+        {/* ── Simulation Control Bar ────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 rounded-xl border border-surface-border bg-surface-card gap-3 shadow-lg">
+          <div className="flex items-center gap-4">
+            <ScenarioClock elapsedSeconds={plantState?.simulator_elapsed_seconds} />
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                plantState?.simulator_running
+                  ? 'bg-safe/10 text-safe border-safe/30 animate-pulse-slow'
+                  : 'bg-surface-muted/10 text-surface-muted border-surface-border'
+              }`}
+            >
+              {plantState?.simulator_running ? '● Simulation Live' : '○ Simulation Paused'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleToggleStartPause}
+              disabled={!connected}
+              className="text-xs font-semibold px-4 py-2 rounded-lg border transition-all flex items-center gap-1.5 shadow disabled:opacity-50"
+              style={{
+                color: plantState?.simulator_running ? '#eab308' : '#22c55e',
+                borderColor: plantState?.simulator_running ? '#eab30866' : '#22c55e66',
+                background: plantState?.simulator_running ? '#eab30810' : '#22c55e10',
+              }}
+            >
+              {plantState?.simulator_running ? (
+                <>
+                  <span>⏸</span> Pause Simulation
+                </>
+              ) : (
+                <>
+                  <span>▶</span> Start Simulation
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleRestart}
+              disabled={!connected}
+              className="text-xs font-semibold px-4 py-2 rounded-lg border border-surface-border text-slate-300 hover:text-white hover:bg-surface-border/50 transition-all flex items-center gap-1.5 shadow disabled:opacity-50"
+            >
+              <span>🔄</span> Restart Simulation
+            </button>
+            <div className="hidden md:flex items-center gap-2 text-[10px] text-surface-muted ml-2">
+              <span>Poll: 2s</span>
+              <span>·</span>
+              <span>1s real = 2s scenario</span>
+            </div>
           </div>
         </div>
 
@@ -742,7 +892,7 @@ export default function App() {
             </div>
 
             {/* Knowledge graph — full width inside right column */}
-            <KnowledgeGraph currentLevel={primaryLevel} />
+            <KnowledgeGraph currentLevel={primaryLevel} backendUrl={backendUrl} />
           </div>
         </div>
       </main>
@@ -750,7 +900,7 @@ export default function App() {
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="border-t border-surface-border py-3 text-center">
         <p className="text-[10px] text-surface-muted">
-          FusionIQ · ET AI Hackathon 2026 · Day 8 build · Simulated sensor data · Backend: {BACKEND_URL}
+          FusionIQ · ET AI Hackathon 2026 · Day 8 build · Simulated sensor data · Backend: {backendUrl}
         </p>
       </footer>
 
@@ -761,6 +911,17 @@ export default function App() {
           level={reportModal.level}
           score={reportModal.score}
           onClose={() => setReportModal(null)}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          backendUrl={backendUrl}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(newUrl) => {
+            setBackendUrl(newUrl)
+            localStorage.setItem('FUSIONIQ_BACKEND_URL', newUrl)
+          }}
         />
       )}
     </div>
