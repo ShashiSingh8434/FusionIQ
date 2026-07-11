@@ -1,16 +1,22 @@
 /**
- * App.jsx — FusionIQ Live Dashboard (Day 6 + Day 7)
+ * App.jsx — FusionIQ Live Dashboard (Days 6 · 7 · 8 · 9)
  *
  * Polling:
- *   /plant-state     every 2 s  → raw sensor values + worker/permit data
- *   /hazard-score    every 2 s  → compound scores + per-agent breakdown
- *   /hazard-explanation  every 4 s  → Gemini root-cause + actions (cached server-side)
+ *   /plant-state       every 2 s  → raw sensor values + worker/permit data
+ *   /hazard-score      every 2 s  → compound scores + per-agent breakdown
+ *   /hazard-explanation  every 4 s  → Gemini root-cause + actions
+ *   /similar-incident  every 6 s  → RAG tag-overlap incident match (Day 8)
+ *
+ * On-demand:
+ *   /incident-report   fetch on button click → 7-section regulatory report
  *
  * Panels:
- *   Left column  — Geospatial Heatmap (Day 6), Permit list (Day 7)
- *   Right column — Compound Hazard Score + Agent breakdown (Day 6),
- *                  Gemini Explanation (Day 5/6), Worker tracking (Day 7)
- *   Bottom       — Knowledge Graph (Day 7), Similar Incident stub
+ *   Left column  — Geospatial Heatmap (Day 6), Permit list (Day 7),
+ *                  Similar Incident card (Day 8)
+ *   Right column — Compound Hazard Score + Agent breakdown + Report button (Day 6/8),
+ *                  Gemini Explanation (Day 5), Worker tracking (Day 7)
+ *   Bottom       — Knowledge Graph (Day 7)
+ *   Modal        — Incident Report viewer + download (Day 8)
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -436,18 +442,192 @@ function WorkerPanel({ plantState }) {
   )
 }
 
-// ── Similar Incident stub (Day 8) ─────────────────────────────────────────────
+// ── Similar Incident Panel (Day 8) ───────────────────────────────────────────
 
-function IncidentStub() {
+function IncidentPanel({ incidentData }) {
+  const match = incidentData?.match
+  const activeTags = incidentData?.active_tags ?? []
+
+  const tagColor = t => ({
+    gas:            '#14b8a6',
+    hot_work:       '#eab308',
+    confined_space: '#f97316',
+    maintenance:    '#a855f7',
+  }[t] ?? '#8892a4')
+
+  const tagLabel = t => ({
+    gas:            'Gas',
+    hot_work:       'Hot-Work',
+    confined_space: 'Confined Space',
+    maintenance:    'Maintenance',
+  }[t] ?? t)
+
+  const sevColor = s => ({
+    Critical: '#ef4444', High: '#f97316', Elevated: '#eab308', Safe: '#22c55e',
+  }[s] ?? '#8892a4')
+
   return (
-    <div className="card animate-fade-in border-dashed">
-      <div className="flex items-center justify-between mb-2">
+    <div className="card animate-fade-in">
+      <div className="flex items-center justify-between mb-3">
         <p className="section-label mb-0">Similar Past Incident</p>
-        <span className="text-[9px] text-surface-muted bg-surface border border-surface-border rounded px-1.5 py-0.5">Day 8</span>
+        <div className="flex items-center gap-1.5">
+          {activeTags.length > 0 && (
+            <div className="flex gap-1">
+              {activeTags.map(t => (
+                <span key={t}
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                  style={{ color: tagColor(t), background: `${tagColor(t)}18`, border: `1px solid ${tagColor(t)}44` }}
+                >
+                  {tagLabel(t)}
+                </span>
+              ))}
+            </div>
+          )}
+          <span className="text-[9px] text-surface-muted bg-surface border border-surface-border rounded px-1.5 py-0.5">
+            RAG · tag-overlap
+          </span>
+        </div>
       </div>
-      <p className="text-xs text-surface-muted">
-        RAG incident matcher wiring up Day 8 — will show the closest historical incident from the plant incident corpus.
-      </p>
+
+      {!incidentData && (
+        <p className="text-xs text-surface-muted animate-pulse">Waiting for first match…</p>
+      )}
+
+      {incidentData && !match && (
+        <div className="text-center py-4">
+          <p className="text-xs text-surface-muted">No matching incident</p>
+          <p className="text-[10px] text-surface-muted mt-1">Active tag overlap score: 0</p>
+        </div>
+      )}
+
+      {match && (
+        <div className="space-y-2">
+          {/* Title + severity */}
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold text-white leading-snug flex-1">{match.title}</p>
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+              style={{ color: sevColor(match.severity), background: `${sevColor(match.severity)}18`, border: `1px solid ${sevColor(match.severity)}44` }}
+            >
+              {match.severity}
+            </span>
+          </div>
+
+          {/* Meta row */}
+          <div className="flex items-center gap-2 text-[10px] text-surface-muted">
+            <span>{match.id}</span>
+            <span>·</span>
+            <span>{match.date}</span>
+            <span>·</span>
+            <span
+              className="font-semibold"
+              style={{ color: sevColor(match.severity) }}
+            >
+              {match.similarity_pct}% match
+            </span>
+          </div>
+
+          {/* Matching tags */}
+          {match.matching_tags?.length > 0 && (
+            <div className="flex gap-1 flex-wrap">
+              {match.matching_tags.map(t => (
+                <span key={t}
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                  style={{ color: tagColor(t), background: `${tagColor(t)}18`, border: `1px solid ${tagColor(t)}44` }}
+                >
+                  ✓ {tagLabel(t)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Summary */}
+          <p className="text-[11px] text-slate-300 leading-relaxed line-clamp-3">
+            {match.summary}
+          </p>
+
+          {/* Root cause */}
+          <div className="p-2 rounded-lg bg-surface border border-surface-border">
+            <p className="text-[9px] text-surface-muted font-semibold uppercase tracking-wide mb-1">Historical Root Cause</p>
+            <p className="text-[11px] text-slate-300 leading-snug">{match.root_cause}</p>
+          </div>
+
+          {/* Source note */}
+          <p className="text-[9px] text-surface-muted italic">{match.source_note}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Incident Report Modal (Day 8) ─────────────────────────────────────────────
+
+function ReportModal({ report, level, score, onClose }) {
+  const handleDownload = () => {
+    const blob = new Blob([report], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fusioniq-incident-report-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const levelCol = levelColor(level)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="relative w-full max-w-3xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl modal-enter"
+        style={{ background: '#0d1117', borderColor: `${levelCol}44` }}
+      >
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: `${levelCol}22`, border: `1px solid ${levelCol}55` }}>📋</div>
+            <div>
+              <p className="text-sm font-bold text-white">Incident Report</p>
+              <p className="text-[10px] text-surface-muted">FusionIQ · Zone Alpha · Score {score?.toFixed(0)}/100 · {level}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
+              style={{ color: levelCol, borderColor: `${levelCol}55`, background: `${levelCol}11` }}
+            >
+              ↓ Download .txt
+            </button>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-lg border border-surface-border text-surface-muted hover:text-white hover:border-white/30 transition-colors flex items-center justify-center text-sm"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Report body */}
+        <div className="flex-1 overflow-y-auto p-5">
+          <pre
+            className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap font-mono"
+            style={{ fontFamily: 'JetBrains Mono, Fira Code, monospace' }}
+          >
+            {report}
+          </pre>
+        </div>
+
+        {/* Disclaimer footer */}
+        <div className="px-5 py-3 border-t border-surface-border shrink-0">
+          <p className="text-[10px] text-surface-muted">
+            ⚠ Prototype report generated from simulated data. Compliance references are generic — verify specific clauses against your plant's safety management system before any formal submission.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -456,10 +636,13 @@ function IncidentStub() {
 
 export default function App() {
   const [lastPoll, setLastPoll] = useState(null)
+  const [reportModal, setReportModal] = useState(null)   // { report, level, score } | null
+  const [reportLoading, setReportLoading] = useState(false)
 
   const { data: plantState, error: plantError } = usePoll(`${BACKEND_URL}/plant-state`, 2000)
   const { data: hazardData, error: hazardError } = usePoll(`${BACKEND_URL}/hazard-score`, 2000)
   const { data: explanation } = usePoll(`${BACKEND_URL}/hazard-explanation`, 4000)
+  const { data: incidentData } = usePoll(`${BACKEND_URL}/similar-incident`, 6000)
 
   useEffect(() => {
     if (plantState || hazardData) setLastPoll(new Date().toLocaleTimeString())
@@ -468,6 +651,20 @@ export default function App() {
   const connected = !plantError && !hazardError && !!plantState
   const primaryZone = hazardData?.zones?.find(z => z.zone_id === 'zone-alpha')
   const primaryLevel = primaryZone?.level ?? 'Safe'
+
+  const handleGenerateReport = async () => {
+    setReportLoading(true)
+    try {
+      const res = await fetch(`${BACKEND_URL}/incident-report`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setReportModal({ report: data.report, level: data.level, score: data.score })
+    } catch (err) {
+      alert(`Report generation failed: ${err.message}`)
+    } finally {
+      setReportLoading(false)
+    }
+  }
 
   // Build heatmap zone list — merge plant state + hazard scores
   const heatmapZones = (plantState?.zones ?? []).map(zone => {
@@ -503,15 +700,37 @@ export default function App() {
         {/* ── Main grid ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-          {/* Left column — heatmap + permits */}
+          {/* Left column — heatmap + permits + incident */}
           <div className="lg:col-span-4 space-y-4">
             <HeatmapGrid zones={heatmapZones} />
             <PermitPanel plantState={plantState} />
-            <IncidentStub />
+            <IncidentPanel incidentData={incidentData} />
           </div>
 
           {/* Right column — hazard panel + explanation + workers */}
           <div className="lg:col-span-8 space-y-4">
+
+            {/* Report button — full width, above the panels */}
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-surface-border bg-surface-card">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white">Incident Report Generator</p>
+                <p className="text-[10px] text-surface-muted">
+                  Generates a 7-section regulatory-style report from current signals, AI explanation, and best-matching historical incident.
+                </p>
+              </div>
+              <button
+                onClick={handleGenerateReport}
+                disabled={reportLoading}
+                className="shrink-0 text-xs font-bold px-4 py-2 rounded-lg border transition-all disabled:opacity-50"
+                style={{
+                  color: levelColor(primaryLevel),
+                  borderColor: `${levelColor(primaryLevel)}66`,
+                  background: `${levelColor(primaryLevel)}15`,
+                }}
+              >
+                {reportLoading ? '⏳ Generating…' : '📋 Generate Report'}
+              </button>
+            </div>
 
             {/* Top row: hazard score + explanation side by side on xl */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -531,9 +750,19 @@ export default function App() {
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="border-t border-surface-border py-3 text-center">
         <p className="text-[10px] text-surface-muted">
-          FusionIQ · ET AI Hackathon 2026 · Day 7 build · Simulated sensor data · Backend: {BACKEND_URL}
+          FusionIQ · ET AI Hackathon 2026 · Day 8 build · Simulated sensor data · Backend: {BACKEND_URL}
         </p>
       </footer>
+
+      {/* ── Report Modal ───────────────────────────────────────────────── */}
+      {reportModal && (
+        <ReportModal
+          report={reportModal.report}
+          level={reportModal.level}
+          score={reportModal.score}
+          onClose={() => setReportModal(null)}
+        />
+      )}
     </div>
   )
 }

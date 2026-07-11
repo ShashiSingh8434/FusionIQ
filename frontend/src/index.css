@@ -79,6 +79,49 @@ body {
 .animate-slide-up { animation: slideUp 0.3s  ease-out both; }
 .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4,0,0.6,1) infinite; }
 
+/* ── Day 9 polish additions ──────────────────────────────────────────── */
+
+/* Smooth scroll globally */
+html { scroll-behavior: smooth; }
+
+/* Line clamp utilities */
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Focus ring — accessible but styled */
+:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.7);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Modal appear animation */
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+.modal-enter { animation: modalIn 0.22s ease-out both; }
+
+/* Improved scrollbar inside report modal pre block */
+.report-pre::-webkit-scrollbar { width: 4px; }
+.report-pre::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 2px; }
+
+/* Highlight active tag pills on hover */
+.tag-pill {
+  transition: filter 0.15s ease;
+  cursor: default;
+}
+.tag-pill:hover { filter: brightness(1.25); }
+
 /* React Flow overrides */
 .react-flow__background { background-color: #0f1117 !important; }
-.react-flow__edge-path  { stroke-width: 2 !important; }
+.react-flow__edge-path  { stroke-width: 1.5 !important; }
+.react-flow__minimap    { border-radius: 8px; overflow: hidden; }
+.react-flow__controls   { border-radius: 8px; overflow: hidden; }
+.react-flow__controls-button {
+  background: #161b27 !important;
+  border-color: #1e2535 !important;
+  color: #8892a4 !important;
+}
+.react-flow__controls-button:hover { color: #e2e8f0 !important; }

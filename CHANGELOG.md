@@ -15,7 +15,7 @@ The full pipeline is live end-to-end: scenario → simulator → hazard engine �
 
 | Layer | Status | Notes |
 |---|---|---|
-| FastAPI backend | ✅ Running | `uvicorn app.main:app --reload` on port 8000, v0.5.0 |
+| FastAPI backend | ✅ Running | `uvicorn app.main:app --reload` on port 8000, v0.8.0 |
 | SQLite database | ✅ Live | Tables created + zone rows seeded on first startup |
 | Scenario data | ✅ Locked | `data/scenario.json` is the single source of truth |
 | Data simulator | ✅ Day 3 complete | Interpolated, noisy, looping sensor stream |
@@ -27,9 +27,10 @@ The full pipeline is live end-to-end: scenario → simulator → hazard engine �
 | Permit list panel | ✅ Day 7 complete | Conflict detection: hot-work vs. gas >75% LEL |
 | Worker tracking panel | ✅ Day 7 complete | Name, role, zone, CS/maintenance badges |
 | Knowledge graph | ✅ Day 7 complete | React Flow, 6 node types, 3s live polling |
-| RAG incident matcher | 🔲 Day 8 | Tag-overlap matching against incidents.json |
-| Incident report generator | 🔲 Day 8 | Regulatory-style formatted report |
-| UI polish | 🔲 Day 9 | Consistent spacing, final color pass |
+| RAG incident matcher | ✅ Day 8 complete | Tag-overlap + severity tie-break, 15-incident corpus |
+| Similar Incident card | ✅ Day 8 complete | Live panel in left column, polls `/similar-incident` every 6 s |
+| Incident report generator | ✅ Day 8 complete | 7-section regulatory report, modal viewer + .txt download |
+| UI polish | ✅ Day 9 complete | Line-clamp, modal animation, focus rings, React Flow CSS |
 | Video + submission | 🔲 Day 10 | Record, document, submit |
 
 ---
@@ -270,6 +271,191 @@ Critical proof test passing:
 
 ---
 
+### Day 5 — Gemini Explainability ✅
+
+**Date completed:** 2026-07-11
+
+**Files modified:**
+- `backend/app/explainability.py` — fully implemented (was a 2-line stub)
+- `backend/app/main.py` — `/hazard-explanation` stub replaced with real implementation
+
+**What was built:**
+
+`explainability.py` exposes `explain_hazard(signals, score, level, event_id)` which:
+
+1. Builds a structured prompt describing the current hazard state — gas PPM, threshold %, permit status, confined-space status, maintenance status, compound score, and level
+2. Calls `google-generativeai` SDK (`genai.GenerativeModel("gemini-2.0-flash")`) with an 8-second timeout enforced via a daemon thread + `threading.Event`
+3. Strips markdown fences (`\`\`\`json … \`\`\``) defensively before `json.loads()`
+4. Caches the result per `event_id` in a module-level `_explanation_cache` dict — the frontend polls every 4 seconds but the API is only called once per level-change event
+5. Falls back to a hardcoded static explanation per level (Safe / Elevated / High / Critical) if the API call fails, times out, or the key is missing — the demo never breaks
+
+**New API routes:**
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/hazard-explanation` | Gemini root-cause + confidence + actions for zone-alpha's current hazard state |
+
+**End-of-Day-5 checkpoint:** when score hits Critical, the explanation endpoint returns a clean root-cause + actions response — live from Gemini or indistinguishable fallback. ✅
+
+---
+
+### Day 6 — Dashboard Core Panels + Geospatial Heatmap ✅
+
+**Date completed:** 2026-07-11
+
+**Files modified:**
+- `frontend/src/App.jsx` — rebuilt from skeleton into full dashboard
+- `frontend/src/components/HeatmapGrid.jsx` — new file
+- `frontend/src/index.css` — full design-system token set added
+
+**What was built:**
+
+**`HeatmapGrid.jsx`** — Geospatial Safety Heatmap (directly addresses brief bullet):
+- Pure SVG, 6×4 grid overlaid on plant layout
+- Each zone cell's `fill` and `opacity` computed from `score / 100` — no GIS library needed
+- Color scale: `#22c55e` (safe) → `#eab308` (elevated) → `#f97316` (high) → `#ef4444` (critical)
+- Animated glow ring on Critical cells via CSS keyframes
+- Zone label, score number, and level text rendered inside each rect
+- Props: `zones` array with `{ id, name, score, level, x, y }`
+
+**`App.jsx`** full dashboard:
+- `usePoll(url, intervalMs)` custom hook — `useEffect` + `setInterval` + cleanup; sets `loading`, `data`, `error`
+- Polls `/plant-state` every 2s, `/hazard-score` every 2s, `/hazard-explanation` every 4s
+- Compound Hazard Panel: large score number with level-colour glow, `LevelBadge`, 4 `AgentBar` components (gas/permit/worker/maintenance, each with max-score label), interaction bonus row
+- Scenario clock bar: maps elapsed seconds to scenario milestone labels (`0:00 — Plant nominal` through `2:20 — ALL FACTORS ACTIVE`)
+- Sticky header with live connection pill and current hazard level ticker (pulsing when non-Safe)
+
+**Design tokens** in `index.css`:
+- CSS variables via Tailwind `extend`: `safe`, `elevated`, `high`, `critical`, `surface`, `surface-card`, `surface-border`, `surface-muted`
+- `badge-*` component classes, `agent-bar-track/fill`, `ring-critical`, `ring-high` glow animation
+
+**End-of-Day-6 checkpoint:** dashboard visibly reacts in real time — heatmap zones change colour, compound score animates, agent bars fill as the scenario plays. ✅
+
+---
+
+### Day 7 — Secondary Panels + Knowledge Graph ✅
+
+**Date completed:** 2026-07-11
+
+**Files modified:**
+- `frontend/src/App.jsx` — Permit panel, Worker panel, and Similar Incident stub added
+- `frontend/src/components/KnowledgeGraph.jsx` — new file (React Flow)
+- `frontend/vite.config.js` — `resolve.dedupe: ['react', 'react-dom']` added
+
+**What was built:**
+
+**Permit list panel:**
+- Lists all active permits across all zones with type, status, and issued timestamp
+- Conflict detection: if a hot-work permit is active in a zone where gas > 75% of LEL threshold, the permit row is highlighted in orange/red with a "⚠ GAS CONFLICT" badge
+- Styled with `card` class, sorted by conflict status first
+
+**Worker tracking panel:**
+- Iterates all workers across all zones from `/plant-state`
+- Shows avatar initial, name, role, zone ID, and hazard level with zone-colour indicator
+- `CS` badge (orange) for workers with `in_confined_space: true`; `MNT` badge (purple) for `in_maintenance: true`
+- Live 1-second timer tick via `setInterval` in a `useEffect`
+
+**`KnowledgeGraph.jsx`** — Knowledge Graph (directly addresses brief bullet):
+- Imports React Flow with **static module-scope `NODE_TYPES` and `EDGE_TYPES`** objects — mandatory to avoid React Flow error #002 (new object reference on every render triggers infinite re-render loop)
+- 6 custom node types: `ZoneNode`, `SensorNode`, `PermitNode`, `WorkerNode`, `MaintNode`, `RiskNode`
+- `LabeledEdge` custom edge type with `EdgeLabelRenderer` for relationship labels
+- Polls `/knowledge-graph/zone-alpha` every 3 seconds; falls back to a hardcoded default graph while loading
+- `MiniMap` coloured by node type; `Controls` styled to match dark theme
+
+**React Flow deduplication fix:**
+`vite.config.js` `resolve.dedupe: ['react', 'react-dom', 'reactflow']` ensures React Flow shares the same React instance as the app — resolves the duplicate-React hook error that appears when `reactflow` bundles its own React copy.
+
+**End-of-Day-7 checkpoint:** all dashboard panels present including the live knowledge graph. Permits show conflict highlighting; workers show confined-space/maintenance badges. ✅
+
+---
+
+### Day 8 — RAG Incident Matcher + Incident Report Generator ✅
+
+**Date completed:** 2026-07-11
+
+**Files created:**
+- `data/incidents.json` — 15 incident entries
+- `backend/app/rag.py` — tag-overlap RAG matcher
+- `backend/app/report_generator.py` — 7-section report formatter
+
+**Files modified:**
+- `backend/app/main.py` — `/similar-incident` and `/incident-report` stubs replaced; version bumped to `0.8.0`
+- `frontend/src/App.jsx` — `IncidentPanel`, `ReportModal`, report button, `/similar-incident` poll
+
+**What was built:**
+
+**`incidents.json`** — 15-entry incident corpus:
+- 3 entries based loosely on real public cases (DGFASLI blast furnace gas incident, OISD petrochemical tank farm, SAIL steel plant event) — details and locations anonymised, `"simulated": false`
+- 12 fictional entries covering all relevant compound hazard patterns — `"simulated": true`
+- Every entry has: `id`, `title`, `date`, `location`, `summary`, `tags`, `severity`, `root_cause`, `outcome`, `source_note`
+- Tag vocabulary: `gas`, `hot_work`, `confined_space`, `maintenance` — matches the 4 signal-agents exactly
+
+**`rag.py`** — tag-overlap RAG:
+- `signals_to_tags(signals)` derives active tags: `gas` if `gas_ppm/gas_threshold > 0.5`, boolean flags for the others
+- `find_similar_incident(signals)` scores each incident by `|active_tags ∩ incident_tags|`, breaks ties by severity order (`Critical > High > Elevated > Safe`) then by most-recent date
+- Returns `None` if the best overlap score is 0 — prevents spurious matches during Safe phase
+- Returns a clean result dict including `matching_tags`, `overlap_score`, and `similarity_pct`
+- Corpus loaded once at module import (`_CORPUS_LOADED` flag) — no repeated file I/O
+
+**`report_generator.py`** — 7-section regulatory report:
+
+| Section | Content |
+|---|---|
+| 1. Incident Summary | Report ID (timestamped), zone, hazard level, compound score |
+| 2. Detected Signals | Gas ppm + % LEL, each boolean flag status, per-agent score breakdown |
+| 3. AI Root Cause Analysis | Gemini root-cause text, confidence, recommended actions |
+| 4. Immediate Actions | Level-keyed action list (Critical = 8 actions; High = 6; Elevated = 5) |
+| 5. Similar Historical Incident | Best RAG match — title, date, summary, root cause, outcome, source note |
+| 6. Recommended Follow-up | Level-keyed follow-up list (investigation, audit, briefing timelines) |
+| 7. Compliance Reference | Generic OISD 116/105/117, Factories Act s.36/36A, DGMS, PNGRB — no fabricated clause numbers |
+
+**Frontend additions:**
+- `IncidentPanel` component: active signal tag pills, similarity %, matched-tag checkmarks, summary (3-line clamp), historical root-cause card, source note
+- `ReportModal`: fixed overlay, monospaced `<pre>` report body, level-accented border, `↓ Download .txt` button creates Blob URL for client-side download, click-backdrop-to-close
+- Generate Report button in right column: level-coloured, spinner state during fetch, `async/await` with error handling
+- `/similar-incident` added to polling hooks at 6-second interval
+
+**New API routes:**
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/similar-incident` | Tag-overlap RAG match — `{ timestamp, zone_id, active_tags, match }` |
+| `GET` | `/incident-report` | Full 7-section report text — `{ timestamp, zone_id, level, score, report }` |
+
+**Smoke-test results:**
+- During `gas + hot_work + confined_space` phase: `/similar-incident` → INC-003, 100% tag match ✅
+- `/incident-report` → 130–145 lines, all 7 sections present, level reflects current scenario phase ✅
+
+**End-of-Day-8 checkpoint:** full pipeline runs clean front-to-back — simulator → engine → explanation → heatmap → knowledge graph → RAG match → incident report — without manual intervention. Generate Report button produces a downloadable regulatory-style report. ✅
+
+---
+
+### Day 9 — UI Polish ✅
+
+**Date completed:** 2026-07-11
+
+**Files modified:**
+- `frontend/src/index.css` — Day 9 polish block appended
+- `frontend/src/App.jsx` — `modal-enter` class applied to modal inner div; footer version label updated
+
+**What was polished:**
+
+| Item | Change |
+|---|---|
+| Line-clamp utilities | Added `.line-clamp-2/3/4` — used in `IncidentPanel` summary to prevent overflow |
+| Modal animation | `@keyframes modalIn` (scale 0.96→1, translateY 8px→0, 0.22s) + `.modal-enter` class applied to `ReportModal` |
+| Focus ring | `:focus-visible` — indigo 2px outline, `outline-offset: 2px`, borderRadius 4px — accessible but styled |
+| Smooth scroll | `html { scroll-behavior: smooth; }` |
+| React Flow controls | `.react-flow__controls-button` — dark background `#161b27`, styled border/text to match theme |
+| React Flow minimap | `border-radius: 8px; overflow: hidden` — consistent with card rounding |
+| Edge width | Corrected from `2px` to `1.5px` — matches the node border weights visually |
+| Tag pill hover | `.tag-pill { transition: filter 0.15s; } :hover { brightness(1.25) }` — subtle interactivity hint |
+| Scrollbar (modal) | `.report-pre` scrollbar — 4px wide, matches global scrollbar style |
+
+**End-of-Day-9 checkpoint:** dashboard is visually consistent — card rounding, spacing, focus states, and animations are coherent across all panels. Knowledge graph controls match the dark theme. Report modal animates in smoothly. ✅
+
+---
+
 ## Day Log
 
 | Day | Status | What was delivered |
@@ -280,10 +466,10 @@ Critical proof test passing:
 | **Day 4** | ✅ Done | `hazard_engine.py` — 4 signal-agents + orchestrator + compound bonus; 21/21 unit tests pass; `/hazard-score` live |
 | **Day 5** | ✅ Done | `explainability.py` — Gemini `gemini-2.0-flash`, 8 s timeout, fallback per level, event-id cache; `/hazard-explanation` live |
 | **Day 6** | ✅ Done | Full dashboard: `HeatmapGrid.jsx` (SVG 6×4, score-driven colors), Compound Hazard Panel, 4-agent bars, interaction bonus row, scenario clock |
-| **Day 7** | ✅ Done | Permit conflict panel, Worker tracking panel, `KnowledgeGraph.jsx` (React Flow, 6 node types, ErrorBoundary SVG fallback) |
-| **Day 8** | 🔲 Next | `incidents.json` corpus → `rag.py` tag-overlap matcher → `report_generator.py` → `/similar-incident` + `/incident-report` + Generate Report button |
-| **Day 9** | 🔲 Pending | UI polish pass, architecture diagram, detailed document (~12 pages), README |
-| **Day 10** | 🔲 Pending | Demo video (3–4 min), rehearse 2×, final commit, submit |
+| **Day 7** | ✅ Done | Permit conflict panel, Worker tracking panel, `KnowledgeGraph.jsx` (React Flow, 6 node types, module-scope nodeTypes fix) |
+| **Day 8** | ✅ Done | 15-entry `incidents.json`; `rag.py` (tag-overlap + severity tie-break); `report_generator.py` (7-section report); `/similar-incident` + `/incident-report` live; Similar Incident card + Report modal + .txt download in dashboard |
+| **Day 9** | ✅ Done | CSS polish: line-clamp, modal-enter animation, focus rings, React Flow control overrides; footer/version bumped to Day 8 build |
+| **Day 10** | 🔲 Next | Demo video (3–4 min), rehearse 2×, architecture diagram, detailed document, final commit, submit |
 
 ---
 
@@ -301,8 +487,8 @@ Base URL: `http://localhost:8000`
 | `GET` | `/hazard-score/{zone_id}` | ✅ Live | Score for a single zone |
 | `GET` | `/knowledge-graph/{zone_id}` | ✅ Live | React Flow node/edge data — Zone → Permit → Risk |
 | `GET` | `/hazard-explanation` | ✅ Live | Gemini root-cause + actions (cached per event, fallback-safe) |
-| `GET` | `/similar-incident` | 🔲 Stub | Coming Day 8 |
-| `GET` | `/incident-report` | 🔲 Stub | Coming Day 8 |
+| `GET` | `/similar-incident` | ✅ Live | RAG tag-overlap match from `incidents.json` (15 entries) |
+| `GET` | `/incident-report` | ✅ Live | 7-section regulatory report (text), aggregates all pipeline data |
 
 ---
 
@@ -425,32 +611,32 @@ FusionIQ/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py           [done] Routes: /health, /plant-state, /hazard-score, /knowledge-graph, /hazard-explanation
+│   │   ├── main.py           [done] v0.8.0 — all 10 routes live incl. /similar-incident + /incident-report
 │   │   ├── database.py       [done] SQLAlchemy ORM, init_db(), 6 tables
 │   │   ├── models.py         [done] Pydantic v2 schemas for all API responses
 │   │   ├── simulator.py      [done] Day 3 — keyframe interpolation, ±2 ppm noise, 3-zone stream
 │   │   ├── hazard_engine.py  [done] Day 4 — 4 agents + orchestrator + compound bonus + KG builder
 │   │   ├── explainability.py [done] Day 5 — Gemini API, 8 s timeout, fallback, per-event cache
-│   │   ├── rag.py            [stub] Day 8 — tag-overlap incident matcher
-│   │   └── report_generator.py  [pending] Day 8 — regulatory-style incident report
+│   │   ├── rag.py            [done] Day 8 — tag-overlap scorer, severity tie-break, zero-overlap guard
+│   │   └── report_generator.py  [done] Day 8 — 7-section regulatory report, compliance refs, immediate actions
 │   ├── tests/
 │   │   └── test_hazard_engine.py  [done] 21 unit tests, all passing
 │   ├── requirements.txt      [done]
 │   └── fusioniq.db           [done] Auto-created on first run
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx           [done] Day 6+7 — full dashboard, usePoll hook, all panels
-│   │   ├── index.css         [done] Tailwind + custom tokens + glow animations
+│   │   ├── App.jsx           [done] Day 8 — IncidentPanel + ReportModal + report button + /similar-incident poll
+│   │   ├── index.css         [done] Day 9 — line-clamp, modal-enter animation, focus ring, React Flow overrides
 │   │   └── components/
 │   │       ├── HeatmapGrid.jsx    [done] Day 6 — SVG 6×4 geospatial heatmap
-│   │       └── KnowledgeGraph.jsx [done] Day 7 — React Flow, 6 node types, ErrorBoundary
+│   │       └── KnowledgeGraph.jsx [done] Day 7 — React Flow, 6 node types, module-scope nodeTypes (error#002 fixed)
 │   ├── package.json          [done] reactflow v11 installed
 │   ├── tailwind.config.js    [done] custom color tokens + glow keyframes
 │   └── vite.config.js        [done] resolve.dedupe for reactflow
 ├── data/
 │   ├── scenario.json         [LOCKED] single source of truth — never edit
-│   └── incidents.json        [pending] Day 8
-├── docs/                     [pending] Architecture diagram, detailed doc — Day 9
+│   └── incidents.json        [done] Day 8 — 15 entries (3 real-based, 12 fictional), all 4 tags covered
+├── docs/                     [pending] Architecture diagram, detailed doc — Day 10
 ├── .env                      [done] git-ignored — put GEMINI_API_KEY here
 ├── .gitignore                [done]
 ├── README.md                 [done]

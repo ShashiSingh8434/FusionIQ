@@ -6,6 +6,7 @@ Day 3: /plant-state wired to simulator.
 Day 4: /hazard-score wired to hazard engine (4 agents + orchestrator).
 Day 5: /hazard-explanation wired to explainability module (Gemini + fallback).
 Day 6+: /hazard-explanation integrated into full dashboard.
+Day 8: /similar-incident (RAG tag-overlap) + /incident-report (report generator).
 """
 
 import os
@@ -60,7 +61,7 @@ app = FastAPI(
         "Correlates gas readings, work permits, worker locations, and maintenance "
         "activity into a unified safety risk score."
     ),
-    version="0.5.0",
+    version="0.8.0",
     lifespan=lifespan,
 )
 
@@ -235,7 +236,7 @@ async def knowledge_graph(zone_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Routes — Stubs for Day 5 and Day 8
+# Routes — Stubs for Day 5  (now implemented above) + Day 8 (implemented below)
 # ---------------------------------------------------------------------------
 
 
@@ -281,11 +282,98 @@ async def hazard_explanation():
     return explanation
 
 
-@app.get("/similar-incident", tags=["RAG"], summary="Similar past incident (Day 8)")
-async def similar_incident_stub():
-    return {"detail": "Not implemented yet — coming Day 8"}
+@app.get("/similar-incident", tags=["RAG"], summary="Top matching past incident for current hazard")
+async def similar_incident():
+    """
+    Tag-overlap RAG: derive active signal tags from the current plant state
+    and return the best-matching incident from data/incidents.json.
+
+    Tags derived from signals:
+      gas            — gas_ppm / gas_threshold > 0.5
+      hot_work       — hot_work_permit is truthy
+      confined_space — confined_space_entry is truthy
+      maintenance    — maintenance_active is truthy
+
+    Tie-breaking: severity (Critical > High > ...) then most recent date.
+    Returns null match field if overlap score is 0.
+    """
+    from app.rag import find_similar_incident, signals_to_tags
+
+    plant_state = get_current_plant_state()
+    zone_states = {z["id"]: z for z in plant_state.get("zones", [])}
+    primary_zone = zone_states.get("zone-alpha")
+    if not primary_zone:
+        raise HTTPException(status_code=404, detail="Primary zone (zone-alpha) not found.")
+
+    hazard_result = score_zone(primary_zone)
+    signals = hazard_result.signals
+
+    match = find_similar_incident(signals)
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "zone_id": "zone-alpha",
+        "active_tags": signals_to_tags(signals),
+        "match": match,
+    }
 
 
-@app.get("/incident-report", tags=["Reports"], summary="Formatted incident report (Day 8)")
-async def incident_report_stub():
-    return {"detail": "Not implemented yet — coming Day 8"}
+@app.get("/incident-report", tags=["Reports"], summary="Regulatory-style incident report for current hazard")
+async def incident_report():
+    """
+    Generate a 7-section regulatory-style incident report for the current
+    hazard state of zone-alpha.
+
+    Aggregates:
+      - Current signals and compound score
+      - Gemini explanation (cached, with fallback)
+      - Best-matching historical incident from incidents.json
+      - Hardcoded immediate-action and follow-up templates per hazard level
+      - Generic compliance references (OISD 116/105/117, Factories Act)
+
+    Returns the report as a plain-text string.  The frontend renders it in a
+    monospaced modal and offers a download link.
+
+    NOTE: This is a prototype report — see the DISCLAIMER section in the
+    output text for honest scoping.
+    """
+    from app.rag import find_similar_incident
+    from app.report_generator import generate_incident_report
+
+    plant_state = get_current_plant_state()
+    zone_states = {z["id"]: z for z in plant_state.get("zones", [])}
+    primary_zone = zone_states.get("zone-alpha")
+    if not primary_zone:
+        raise HTTPException(status_code=404, detail="Primary zone (zone-alpha) not found.")
+
+    hazard_result = score_zone(primary_zone)
+
+    # Get Gemini explanation (uses cache + fallback internally)
+    explanation = explain_hazard(
+        signals=hazard_result.signals,
+        score=hazard_result.score,
+        level=hazard_result.level,
+        event_id=hazard_result.event_id,
+    )
+
+    # Get best matching incident
+    similar = find_similar_incident(hazard_result.signals)
+
+    report_text = generate_incident_report(
+        signals=hazard_result.signals,
+        score=hazard_result.score,
+        level=hazard_result.level,
+        per_agent_breakdown=hazard_result.per_agent_breakdown,
+        explanation=explanation,
+        similar_incident=similar,
+        zone_id="zone-alpha",
+        event_id=str(hazard_result.event_id) if hazard_result.event_id else None,
+    )
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "zone_id": "zone-alpha",
+        "level": hazard_result.level,
+        "score": hazard_result.score,
+        "report": report_text,
+    }
