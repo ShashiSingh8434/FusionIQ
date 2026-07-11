@@ -2,8 +2,8 @@
 
 > **Compound Industrial Hazard Detection — ET AI Hackathon 2026**
 
-[![Backend](https://img.shields.io/badge/Backend-FastAPI_0.8.0-009688?style=flat-square)](http://localhost:8000/docs)
-[![Frontend](https://img.shields.io/badge/Frontend-React_+_Vite-61dafb?style=flat-square)](http://localhost:5173)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI_0.8.0-009688?style=flat-square)](https://fusioniq-backend.onrender.com/)
+[![Frontend](https://img.shields.io/badge/Frontend-React_+_Vite-61dafb?style=flat-square)](https://fusioniq-frontend.vercel.app/)
 [![Build](https://img.shields.io/badge/Build-Days_1--9_complete-22c55e?style=flat-square)](#development-status)
 [![AI](https://img.shields.io/badge/AI-Gemini_2.0_Flash-4285f4?style=flat-square)](#tech-stack)
 
@@ -213,6 +213,8 @@ Base URL: `http://localhost:8000`
 | `GET` | `/docs` | Swagger UI |
 | `GET` | `/plant-state` | Interpolated sensor state for all 3 zones |
 | `POST` | `/simulator/reset` | Restart scenario clock to t=0 |
+| `POST` | `/simulator/start` | Start/resume scenario clock |
+| `POST` | `/simulator/pause` | Pause scenario clock |
 | `GET` | `/hazard-score` | Compound score for all zones + per-agent breakdown |
 | `GET` | `/hazard-score/{zone_id}` | Score for one zone |
 | `GET` | `/knowledge-graph/{zone_id}` | React Flow node/edge data |
@@ -221,6 +223,40 @@ Base URL: `http://localhost:8000`
 | `GET` | `/incident-report` | Full 7-section regulatory report (text) |
 
 ---
+
+## How to Deploy (Render & Vercel)
+
+FusionIQ has been configured with dynamic configuration features that make deploying to production environments simple:
+
+### 1 · Deploy the Backend to Render
+1. Create a new **Web Service** on [Render](https://render.com/).
+2. Connect your repository.
+3. Configure the following parameters:
+   - **Root Directory**: `backend`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+4. Under **Environment Variables**, add:
+   - `GEMINI_API_KEY`: Your Google Gemini API Key.
+   - `ALLOWED_ORIGINS` (Optional): A comma-separated list of additional frontend domains you wish to permit (e.g. `https://fusioniq-frontend.vercel.app`).
+5. Deploy the service. Render will expose a public API URL (e.g., `https://fusioniq-backend.onrender.com`).
+
+### 2 · Deploy the Frontend to Vercel
+1. Create a new **Project** on [Vercel](https://vercel.com/) and import your repository.
+2. Configure the project settings:
+   - **Framework Preset**: `Vite`
+   - **Root Directory**: `frontend`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+3. Under **Environment Variables**, add:
+   - `VITE_API_URL`: Your deployed Render API URL (e.g., `https://fusioniq-backend.onrender.com`).
+4. Click **Deploy**. Vercel will host the dashboard at a public address (e.g., `https://fusioniq-frontend.vercel.app`).
+
+### 3 · Dynamic Browser Settings
+- If you deploy your app and want to point the frontend to a different backend server URL at runtime, click the **Settings gear icon (⚙)** in the header of the webpage. 
+- You can paste any backend URL there. It will be saved to your browser's local storage and the dashboard will immediately reconnect to that server without needing a redeploy.
+
+---
+
 
 ## Troubleshooting
 

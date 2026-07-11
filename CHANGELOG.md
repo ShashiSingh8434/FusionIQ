@@ -456,6 +456,27 @@ Critical proof test passing:
 
 ---
 
+### Day 10 — Production Deployment & Simulation Controls ✅
+
+**Date completed:** 2026-07-11
+
+**Files modified:**
+- `backend/app/main.py` — added simulator control routes + CORS origin updates
+- `backend/app/simulator.py` — deterministic noise when paused
+- `frontend/src/App.jsx` — added play/pause/restart control buttons + connection settings modal
+- `frontend/src/components/KnowledgeGraph.jsx` — accept dynamic backendUrl prop
+
+**What was built:**
+- **Simulator endpoints**: Exposed POST `/simulator/start` and `/simulator/pause` to allow remote control of the scenario clock.
+- **Simulation Control Bar**: Integrated UI buttons next to the scenario clock, showing a state-reflective play/pause toggle, restart button, and status indicator.
+- **Deterministic Noise**: Hash-seeded the random number generator in `_interpolate_zone` with MD5 of `scenario_elapsed` + `zone_key` when the simulator is paused, freezing all sensor data completely instead of leaving them fluctuating.
+- **CORS Setup for Production**: Expanded CORS in FastAPI to support the deployed Vercel domain `https://fusioniq-frontend.vercel.app` and added environment variable support (`ALLOWED_ORIGINS`) in Render.
+- **Settings Modal**: Created a connection config overlay (gear icon in header) that lets you change the API URL on-the-fly and save it to `localStorage` for dynamic browser reconnects.
+
+**End-of-Day-10 checkpoint:** The frontend is successfully deployed to Vercel and backend to Render, fully connected, and whitelisted without any CORS conflicts. The play, pause, and restart simulation controls are verified and functional on the live server. ✅
+
+---
+
 ## Day Log
 
 | Day | Status | What was delivered |
@@ -469,7 +490,7 @@ Critical proof test passing:
 | **Day 7** | ✅ Done | Permit conflict panel, Worker tracking panel, `KnowledgeGraph.jsx` (React Flow, 6 node types, module-scope nodeTypes fix) |
 | **Day 8** | ✅ Done | 15-entry `incidents.json`; `rag.py` (tag-overlap + severity tie-break); `report_generator.py` (7-section report); `/similar-incident` + `/incident-report` live; Similar Incident card + Report modal + .txt download in dashboard |
 | **Day 9** | ✅ Done | CSS polish: line-clamp, modal-enter animation, focus rings, React Flow control overrides; footer/version bumped to Day 8 build |
-| **Day 10** | 🔲 Next | Demo video (3–4 min), rehearse 2×, architecture diagram, detailed document, final commit, submit |
+| **Day 10** | ✅ Done | Deployed frontend to Vercel and backend to Render, resolved CORS, implemented play/pause/restart simulation controls, and dynamic settings modal. |
 
 ---
 
@@ -483,6 +504,8 @@ Base URL: `http://localhost:8000`
 | `GET` | `/docs` | ✅ Live | Swagger UI — full API surface |
 | `GET` | `/plant-state` | ✅ Live | Interpolated plant state for all 3 zones |
 | `POST` | `/simulator/reset` | ✅ Live | Restart scenario clock to t=0 |
+| `POST` | `/simulator/start` | ✅ Live | Start/resume scenario clock |
+| `POST` | `/simulator/pause` | ✅ Live | Pause scenario clock |
 | `GET` | `/hazard-score` | ✅ Live | Compound score for all zones + per-agent breakdown |
 | `GET` | `/hazard-score/{zone_id}` | ✅ Live | Score for a single zone |
 | `GET` | `/knowledge-graph/{zone_id}` | ✅ Live | React Flow node/edge data — Zone → Permit → Risk |
