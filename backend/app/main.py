@@ -4,8 +4,17 @@ main.py — FusionIQ FastAPI application entry point.
 Day 2: /health route + DB init + CORS.
 Day 3: /plant-state wired to simulator.
 Day 4: /hazard-score wired to hazard engine (4 agents + orchestrator).
-Day 5+: /hazard-explanation, /similar-incident, /incident-report (stubs until those days).
+Day 5: /hazard-explanation wired to explainability module (Gemini + fallback).
+Day 6+: /hazard-explanation integrated into full dashboard.
 """
+
+import os
+
+from dotenv import load_dotenv
+
+# Load .env from the project root (two levels up from app/)
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -15,6 +24,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
+from app.explainability import explain_hazard, get_cached_explanation
 from app.hazard_engine import HazardScoreResult, build_knowledge_graph, score_all_zones, score_zone
 from app.models import (
     AgentBreakdownSchema,
@@ -50,7 +60,7 @@ app = FastAPI(
         "Correlates gas readings, work permits, worker locations, and maintenance "
         "activity into a unified safety risk score."
     ),
-    version="0.3.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -87,7 +97,7 @@ async def health_check():
     return HealthResponse(
         status="ok",
         timestamp=datetime.now(timezone.utc),
-        version="0.3.0",
+        version="0.5.0",
     )
 
 
@@ -229,9 +239,46 @@ async def knowledge_graph(zone_id: str):
 # ---------------------------------------------------------------------------
 
 
-@app.get("/hazard-explanation", tags=["Explainability"], summary="Gemini explanation (Day 5)")
-async def hazard_explanation_stub():
-    return {"detail": "Not implemented yet — coming Day 5"}
+@app.get("/hazard-explanation", tags=["Explainability"], summary="Gemini explanation for latest hazard")
+async def hazard_explanation():
+    """
+    Return a natural-language explanation for the current hazard state.
+
+    Behaviour:
+    - Calls the Gemini API (gemini-2.0-flash) to generate root cause + actions.
+    - Returns a cached explanation if the hazard level hasn't changed since the
+      last call (avoids hammering the API on every 2-second frontend poll).
+    - Falls back to a hardcoded static explanation if the API is unavailable or
+      times out — the demo never breaks.
+    """
+    # Get current plant state and score for zone-alpha (the primary zone)
+    plant_state = get_current_plant_state()
+    zone_states = {z["id"]: z for z in plant_state.get("zones", [])}
+
+    primary_zone = zone_states.get("zone-alpha")
+    if not primary_zone:
+        return {"detail": "Primary zone not found."}
+
+    from app.hazard_engine import score_zone as _score_zone
+    result = _score_zone(primary_zone)
+
+    # Use event_id as cache key if a new level-change event was written;
+    # otherwise use the last event_id stored in the cache.
+    cache_key = result.event_id  # None if level didn't change
+
+    # Check if we already have a cached explanation
+    cached = get_cached_explanation(cache_key)
+    if cached and cache_key is not None:
+        return cached
+
+    # Generate (or return "latest" cache)
+    explanation = explain_hazard(
+        signals=result.signals,
+        score=result.score,
+        level=result.level,
+        event_id=result.event_id,
+    )
+    return explanation
 
 
 @app.get("/similar-incident", tags=["RAG"], summary="Similar past incident (Day 8)")

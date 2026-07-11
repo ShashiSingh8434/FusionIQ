@@ -1,11 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Global resets & base ────────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+/* ── Global resets & base ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
   height: 100%;
@@ -21,26 +21,64 @@ body {
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track  { background: #161b27; }
-::-webkit-scrollbar-thumb  { background: #2d3748; border-radius: 3px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: #0f1117; }
+::-webkit-scrollbar-thumb  { background: #2d3748; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #4a5568; }
 
-/* ── Utility layer ──────────────────────────────────────────────────── */
+/* ── Animations ─────────────────────────────────────────────────────── */
+@keyframes fadeIn  { from { opacity: 0; }                        to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse   { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes glow-critical { 0%,100% { box-shadow: 0 0 8px rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 20px rgba(239,68,68,0.8); } }
+@keyframes glow-high     { 0%,100% { box-shadow: 0 0 8px rgba(249,115,22,0.4); } 50% { box-shadow: 0 0 20px rgba(249,115,22,0.6); } }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ── Component layer ────────────────────────────────────────────────── */
 @layer components {
+
+  /* Cards */
   .card {
     @apply bg-surface-card border border-surface-border rounded-xl p-4;
   }
+  .card-sm {
+    @apply bg-surface-card border border-surface-border rounded-lg p-3;
+  }
 
-  .badge-safe     { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-safe-light    text-safe-dark; }
-  .badge-elevated { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-elevated-light text-elevated-dark; }
-  .badge-high     { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-high-light     text-high-dark; }
-  .badge-critical { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-critical-light text-critical-dark; }
+  /* Level badges */
+  .badge-safe     { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-safe/10     border border-safe/30     text-safe; }
+  .badge-elevated { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-elevated/10 border border-elevated/30 text-elevated; }
+  .badge-high     { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-high/10     border border-high/30     text-high; }
+  .badge-critical { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-critical/10 border border-critical/30 text-critical; }
 
-  .status-dot {
-    @apply inline-block w-2 h-2 rounded-full mr-1.5;
+  /* Status dot */
+  .status-dot { @apply inline-block w-2 h-2 rounded-full; }
+
+  /* Section headings */
+  .section-label { @apply text-xs font-semibold text-surface-muted uppercase tracking-widest mb-3; }
+
+  /* Agent bar */
+  .agent-bar-track { @apply w-full h-2 rounded-full bg-surface-border overflow-hidden; }
+  .agent-bar-fill  { @apply h-full rounded-full transition-all duration-700 ease-out; }
+
+  /* Glow rings on Critical / High cards */
+  .ring-critical { animation: glow-critical 2s ease-in-out infinite; }
+  .ring-high     { animation: glow-high 2.5s ease-in-out infinite; }
+
+  /* Monospace data values */
+  .data-value { @apply font-mono text-sm tabular-nums; }
+
+  /* Action items */
+  .action-item {
+    @apply flex items-start gap-3 p-3 rounded-lg bg-surface border border-surface-border;
   }
 }
+
+/* ── Utility extras ─────────────────────────────────────────────────── */
+.animate-fade-in  { animation: fadeIn  0.35s ease-out both; }
+.animate-slide-up { animation: slideUp 0.3s  ease-out both; }
+.animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4,0,0.6,1) infinite; }
+
+/* React Flow overrides */
+.react-flow__background { background-color: #0f1117 !important; }
+.react-flow__edge-path  { stroke-width: 2 !important; }
