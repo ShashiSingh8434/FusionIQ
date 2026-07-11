@@ -1,13 +1,26 @@
-# FusionIQ: AI-Powered Industrial Safety Intelligence for Zero-Harm Operations
+# FusionIQ
 
 > **ET AI Hackathon 2026 Submission**  
 > **Track:** Industrial Intelligence / Worker Safety / Geospatial Safety Analytics  
 > **Problem Statement:** AI-Powered Industrial Safety Intelligence for Zero-Harm Operations
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Frontend_on_Vercel-61dafb?style=for-the-badge&logo=vercel)](https://fusioniq-frontend.vercel.app/)
-[![API Swagger Docs](https://img.shields.io/badge/API_Docs-Backend_on_Render-009688?style=for-the-badge&logo=fastapi)](https://fusioniq-backend.onrender.com/docs)
-[![Technology](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Flash-4285f4?style=for-the-badge&logo=google-gemini)](#tech-stack)
-[![Testing](https://img.shields.io/badge/Tests-21_Passing_pytest-22c55e?style=for-the-badge&logo=pytest)](#automated-testing)
+<p align="center">
+  <a href="https://fusioniq-frontend.vercel.app/">
+    <img src="https://img.shields.io/badge/🚀_Live_Demo-Frontend_on_Vercel-61dafb?style=for-the-badge&logo=vercel" alt="Live Demo">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://fusioniq-backend.onrender.com/docs">
+    <img src="https://img.shields.io/badge/API_Docs-Backend_on_Render-009688?style=for-the-badge&logo=fastapi" alt="API Docs">
+  </a>
+  <a href="#tech-stack">
+    <img src="https://img.shields.io/badge/AI_Engine-Gemini_2.0_Flash-4285f4?style=for-the-badge&logo=google-gemini" alt="Technology">
+  </a>
+  <a href="#automated-testing">
+    <img src="https://img.shields.io/badge/Tests-21_Passing_pytest-22c55e?style=for-the-badge&logo=pytest" alt="Testing">
+  </a>
+</p>
 
 ---
 
@@ -36,55 +49,56 @@ Individually, these indicators trigger no alarms. **Together, they create a tick
 FusionIQ uses a multi-agent orchestration architecture to ingest, analyze, correlate, and act upon concurrent safety signals:
 
 ```mermaid
+%%{init: {
+  "theme": "default",
+  "flowchart": {
+    "curve": "basis"
+  }
+}}%%
+
 graph TD
     %% Input Streams
-    subgraph Data Streams
-        S1[IoT Gas Sensors] --> |Gas ppm| H_Orch
-        S2[Permit-to-Work Logs] --> |Permit status| H_Orch
-        S3[Worker Location Telemetry] --> |Confined space entry| H_Orch
-        S4[Maintenance Schedules] --> |Maintenance active| H_Orch
+    subgraph Data_Streams["Data Streams"]
+        S1["IoT Gas Sensors"] -->|Gas ppm| H_Orch
+        S2["Permit-to-Work Logs"] -->|Permit status| H_Orch
+        S3["Worker Location Telemetry"] -->|Confined space entry| H_Orch
+        S4["Maintenance Schedules"] -->|Maintenance active| H_Orch
     end
 
     %% Hazard Engine
-    subgraph Hazard Intelligence Layer
-        H_Orch[Compound Hazard Orchestrator] --> |1. Score Zone| H_Engine[hazard_engine.py]
-        H_Engine --> |Gas Agent| G_Agent[gas_agent]
-        H_Engine --> |Permit Agent| P_Agent[permit_agent]
-        H_Engine --> |Worker Agent| W_Agent[worker_agent]
-        H_Engine --> |Maintenance Agent| M_Agent[maintenance_agent]
-        H_Engine --> |Apply Compound Interaction| C_Bonus[Non-linear Interaction Bonus]
+    subgraph Hazard_Intelligence["Hazard Intelligence Layer"]
+        H_Orch["Compound Hazard Orchestrator"] -->|"1. Score Zone"| H_Engine["hazard_engine.py"]
+
+        H_Engine -->|"Gas Agent"| G_Agent["gas_agent"]
+        H_Engine -->|"Permit Agent"| P_Agent["permit_agent"]
+        H_Engine -->|"Worker Agent"| W_Agent["worker_agent"]
+        H_Engine -->|"Maintenance Agent"| M_Agent["maintenance_agent"]
+
+        H_Engine -->|"Apply Compound Interaction"| C_Bonus["Non-linear Interaction Bonus"]
     end
 
     %% Database
-    H_Engine --> |Save Level-Change Event| DB[(SQLite Database)]
+    H_Engine -->|"Save Level-Change Event"| DB[("SQLite Database")]
 
-    %% Explainability & RAG
-    subgraph Cognitive Layer
-        AI_Exp[explainability.py] --> |2. Explain Hazard| Gemini[Google Gemini 2.0 Flash]
-        RAG_Match[rag.py] --> |3. Match Patterns| Incident_DB[(Tag-Overlap Incident Corpus)]
+    %% Cognitive Layer
+    subgraph Cognitive["Cognitive Layer"]
+        AI_Exp["explainability.py"] -->|"2. Explain Hazard"| Gemini["Google Gemini 2.0 Flash"]
+        RAG_Match["rag.py"] -->|"3. Match Patterns"| Incident_DB[("Tag-Overlap Incident Corpus")]
     end
 
-    %% API
-    DB --> FastAPI[FastAPI REST Backend]
+    %% Backend API
+    DB --> FastAPI["FastAPI REST Backend"]
     Gemini --> FastAPI
     Incident_DB --> FastAPI
 
-    %% Frontend Dashboard
-    subgraph Real-time UI Dashboard
-        FastAPI --> |REST Polling 2s| App[App.jsx Dashboard]
-        App --> Heatmap[SVG Geospatial Heatmap]
-        App --> Graph[React Flow Knowledge Graph]
-        App --> Report[7-Section Compliance Report]
-    end
+    %% Frontend
+    subgraph Dashboard["Real-time UI Dashboard"]
+        FastAPI -->|"REST Polling (2 s)"| App["App.jsx Dashboard"]
 
-    classDef stream fill:#f9f9f9,stroke:#333,stroke-width:1px;
-    classDef engine fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
-    classDef cognitive fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
-    classDef ui fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-    class S1,S2,S3,S4 stream;
-    class H_Orch,H_Engine,G_Agent,P_Agent,W_Agent,M_Agent,C_Bonus engine;
-    class AI_Exp,RAG_Match,Gemini,Incident_DB cognitive;
-    class App,Heatmap,Graph,Report ui;
+        App --> Heatmap["SVG Geospatial Heatmap"]
+        App --> Graph["React Flow Knowledge Graph"]
+        App --> Report["7-Section Compliance Report"]
+    end
 ```
 
 ---
