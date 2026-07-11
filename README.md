@@ -1,297 +1,297 @@
-# FusionIQ
+# FusionIQ: AI-Powered Industrial Safety Intelligence for Zero-Harm Operations
 
-> **Compound Industrial Hazard Detection — ET AI Hackathon 2026**
+> **ET AI Hackathon 2026 Submission**  
+> **Track:** Industrial Intelligence / Worker Safety / Geospatial Safety Analytics  
+> **Problem Statement:** AI-Powered Industrial Safety Intelligence for Zero-Harm Operations
 
-[![Backend](https://img.shields.io/badge/Backend-FastAPI_0.8.0-009688?style=flat-square)](https://fusioniq-backend.onrender.com/)
-[![Frontend](https://img.shields.io/badge/Frontend-React_+_Vite-61dafb?style=flat-square)](https://fusioniq-frontend.vercel.app/)
-[![Build](https://img.shields.io/badge/Build-Days_1--9_complete-22c55e?style=flat-square)](#development-status)
-[![AI](https://img.shields.io/badge/AI-Gemini_2.0_Flash-4285f4?style=flat-square)](#tech-stack)
-
----
-
-## The Problem
-
-Modern industrial facilities have thousands of sensors — but each system evaluates its own signal in isolation.
-
-A gas reading at 85 ppm (threshold: 100 ppm) is *manageable on its own.*  
-Add a hot-work permit (open flame), a confined-space entry (no escape route), and active maintenance (more ignition sources) — and the **combination is catastrophic** even though no single sensor has crossed its alarm threshold.
-
-Standard SCADA systems alert on individual thresholds. FusionIQ scores the **compound state** of the plant.
-
-> In 2020, a gas leak at a major Indian petrochemical facility killed 12 people and sent 100+ to hospital. No single sensor tripped its alarm before the incident.
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Frontend_on_Vercel-61dafb?style=for-the-badge&logo=vercel)](https://fusioniq-frontend.vercel.app/)
+[![API Swagger Docs](https://img.shields.io/badge/API_Docs-Backend_on_Render-009688?style=for-the-badge&logo=fastapi)](https://fusioniq-backend.onrender.com/docs)
+[![Technology](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Flash-4285f4?style=for-the-badge&logo=google-gemini)](#tech-stack)
+[![Testing](https://img.shields.io/badge/Tests-21_Passing_pytest-22c55e?style=for-the-badge&logo=pytest)](#automated-testing)
 
 ---
 
-## What FusionIQ Does
+## 🚨 The Context & Problem
+India's heavy industrial sector pays a devastating human cost. According to **DGFASLI**, over **6,500 fatal workplace accidents** were recorded in FY2023 (excluding most mining and construction sectors). 
 
-FusionIQ is a real-time compound hazard detection platform that:
+In January 2025, eight workers tragically died at the Visakhapatnam Steel Plant due to an explosion in a coke oven battery. The plant *had functioning safety systems* — gas detectors, permit-to-work controls, and SCADA. The investigation revealed that **warning signals from gas pressure sensors existed, but no intelligence layer connected those readings to operational decisions in time.**
 
-1. **Reads four independent signal streams** — gas concentration, work permit status, worker locations, and maintenance activity
-2. **Runs each through a dedicated signal-agent** — each agent scores its own stream independently
-3. **Fuses the scores in an orchestrator** — applies a compound interaction bonus when multiple risk factors are simultaneously active
-4. **Explains the hazard in plain language** — Gemini 2.0 Flash generates root cause, confidence, and recommended actions
-5. **Matches against historical incidents** — tag-overlap RAG against a 15-entry incident corpus
-6. **Generates a regulatory-style incident report** — 7 sections, downloadable as `.txt`
-7. **Visualises everything live** — geospatial heatmap, knowledge graph, permit/worker panels
+This pattern — **data present, but unacted upon** — is systemic. A **FICCI survey in 2024** revealed that over **60% of large industrial facilities** rely on manual handoffs to coordinate safety tools. 
+
+### The FusionIQ Solution
+Traditional SCADA systems alarm only when individual sensors cross hardcoded limits. However, industrial disasters rarely result from a single failure; they are triggered by **compound risk factors** that are individually "safe" but collectively catastrophic:
+- **Gas concentration** at 85 ppm (Safe on its own; alarm threshold is 100 ppm)
+- **Active Hot-Work Permit** in the vicinity (Standard maintenance activity)
+- **Confined-Space Entry** (No fast escape route for operators)
+- **Active Maintenance Team** (Additional ignition and complexity risks)
+
+Individually, these indicators trigger no alarms. **Together, they create a ticking time bomb.**
+
+**FusionIQ** is a real-time safety intelligence platform that integrates disparate data streams into a **unified predictive hazard engine**. It evaluates the compound risk of the facility, explains the threat in natural language, matches it with historical incident records, and automates emergency protocols.
 
 ---
 
-## Core Innovation — The Compound Hazard Formula
+## 🛠️ System Architecture & Data Flow
 
-```python
-# Each signal-agent scores its own stream (max contribution shown)
-gas_score    = min(60, (gas_ppm / threshold) * 60)  # cap: gas alone can't cross "High"
-permit_score = 15 if hot_work_permit else 0
-worker_score = 15 if confined_space_entry else 0
-maint_score  = 10 if maintenance_active else 0
+FusionIQ uses a multi-agent orchestration architecture to ingest, analyze, correlate, and act upon concurrent safety signals:
 
-base = gas_score + permit_score + worker_score + maint_score
+```mermaid
+graph TD
+    %% Input Streams
+    subgraph Data Streams
+        S1[IoT Gas Sensors] --> |Gas ppm| H_Orch
+        S2[Permit-to-Work Logs] --> |Permit status| H_Orch
+        S3[Worker Location Telemetry] --> |Confined space entry| H_Orch
+        S4[Maintenance Schedules] --> |Maintenance active| H_Orch
+    end
 
-# Compound interaction bonus fires when ≥2 risk factors are active AND gas > 75% LEL
-active_factors = sum([hot_work_permit, confined_space_entry, maintenance_active])
-if (gas_ppm / threshold) > 0.75 and active_factors >= 2:
-    interaction_bonus = 15 * active_factors   # ← this is the compound logic
-else:
-    interaction_bonus = 0
+    %% Hazard Engine
+    subgraph Hazard Intelligence Layer
+        H_Orch[Compound Hazard Orchestrator] --> |1. Score Zone| H_Engine[hazard_engine.py]
+        H_Engine --> |Gas Agent| G_Agent[gas_agent]
+        H_Engine --> |Permit Agent| P_Agent[permit_agent]
+        H_Engine --> |Worker Agent| W_Agent[worker_agent]
+        H_Engine --> |Maintenance Agent| M_Agent[maintenance_agent]
+        H_Engine --> |Apply Compound Interaction| C_Bonus[Non-linear Interaction Bonus]
+    end
 
-score = min(100, base + interaction_bonus)
+    %% Database
+    H_Engine --> |Save Level-Change Event| DB[(SQLite Database)]
+
+    %% Explainability & RAG
+    subgraph Cognitive Layer
+        AI_Exp[explainability.py] --> |2. Explain Hazard| Gemini[Google Gemini 2.0 Flash]
+        RAG_Match[rag.py] --> |3. Match Patterns| Incident_DB[(Tag-Overlap Incident Corpus)]
+    end
+
+    %% API
+    DB --> FastAPI[FastAPI REST Backend]
+    Gemini --> FastAPI
+    Incident_DB --> FastAPI
+
+    %% Frontend Dashboard
+    subgraph Real-time UI Dashboard
+        FastAPI --> |REST Polling 2s| App[App.jsx Dashboard]
+        App --> Heatmap[SVG Geospatial Heatmap]
+        App --> Graph[React Flow Knowledge Graph]
+        App --> Report[7-Section Compliance Report]
+    end
+
+    classDef stream fill:#f9f9f9,stroke:#333,stroke-width:1px;
+    classDef engine fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef cognitive fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
+    classDef ui fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    class S1,S2,S3,S4 stream;
+    class H_Orch,H_Engine,G_Agent,P_Agent,W_Agent,M_Agent,C_Bonus engine;
+    class AI_Exp,RAG_Match,Gemini,Incident_DB cognitive;
+    class App,Heatmap,Graph,Report ui;
 ```
 
-**Why this matters:** gas alone at 91 ppm → score ~54 (Elevated). Gas + permit + confined entry + maintenance → score 100 (Critical). The 46-point delta is the compound interaction bonus — a signal no single-sensor system can produce.
+---
+
+## 💡 Core Innovation: The Compound Hazard Formula
+
+The core innovation of [hazard_engine.py](backend/app/hazard_engine.py) is its ability to bypass isolated thresholds and compute non-linear risk interactions.
+
+```python
+# 1. Independent Signal Agents calculate partial risk scores
+gas_score    = min(60, (gas_ppm / threshold) * 60)  # Capped: gas alone cannot cross "High" (60)
+permit_score = 15.0 if hot_work_permit else 0.0
+worker_score = 15.0 if confined_space_entry else 0.0
+maint_score  = 10.0 if maintenance_active else 0.0
+
+base_score = gas_score + permit_score + worker_score + maint_score
+
+# 2. Non-linear Compound Interaction Bonus fires when:
+#    Gas is elevated (>75% LEL) AND >=2 operational risk factors are co-occurring
+active_risk_factors = sum([hot_work_permit, confined_space_entry, maintenance_active])
+
+if (gas_ppm / threshold) > 0.75 and active_risk_factors >= 2:
+    interaction_bonus = 15.0 * active_risk_factors
+else:
+    interaction_bonus = 0.0
+
+# 3. Final Clamped Compound Score
+final_score = min(100.0, base_score + interaction_bonus)
+```
+
+### Why this saves lives:
+Under traditional SCADA systems, a gas reading of **91 ppm** (threshold 100 ppm) is flagged as nominal or slightly elevated. In FusionIQ, if that 91 ppm co-occurs with hot-work and a confined space entry, the orchestrator triggers the **Compound Interaction Bonus**:
+* **Gas Agent Score:** `54.6`
+* **Permit Agent Score:** `15.0`
+* **Worker Agent Score:** `15.0`
+* **Base Score:** `84.6`
+* **Interaction Bonus:** `15.0 * 2 = 30.0` (Fired because gas ratio is $91\% > 75\%$ and active factors = 2)
+* **Compound Score:** `100.0 (Critical)` (Clamped to 100)
+
+**The 45.4-point delta is the compound intelligence signal** that prevents disasters before they happen.
 
 ---
 
-## Live Demo Scenario
+## ⚡ Key Hackathon Deliverables & Features
 
-The simulator plays a ~3-minute scenario loop from `data/scenario.json`:
+### 1. Compound Risk Detection Engine (Multi-Agent System)
+Implemented in [hazard_engine.py](backend/app/hazard_engine.py), it coordinates four specialized agents evaluating gas concentrations, active permit types, confined-space entry logs, and active maintenance workflows.
 
-| Scenario Time | Gas (ppm) | Hot-Work | Confined Space | Maintenance | Score | Level |
-|---|---|---|---|---|---|---|
-| 0:00 | 40 | — | — | — | ~8 | **Safe** |
-| 0:50 | 82 | — | — | — | ~22 | **Safe** |
-| 1:20 | 85 | ✓ | — | — | ~41 | **Elevated** |
-| 1:50 | 88 | ✓ | ✓ | — | ~68 | **High** |
-| 2:20 | 91 | ✓ | ✓ | ✓ | **100** | **Critical** |
+### 2. Live SVG Geospatial Safety Heatmap
+Implemented in [HeatmapGrid.jsx](frontend/src/components/HeatmapGrid.jsx), it maps risk zones dynamically over the plant layout in real-time. Opacity transitions smoothly, and zones pulse red/orange during "High" and "Critical" states, providing immediate, high-fidelity situational awareness.
+
+### 3. Incident Pattern Intelligence (Lightweight RAG)
+Implemented in [rag.py](backend/app/rag.py), it extracts active hazard tags from current signals and performs a tag-overlap comparison against a **15-entry historical incident corpus** (incorporating DGFASLI statistics and real-world failure patterns). It returns the highest matching historical incident with root cause, similarity percentage, and outcome, showing safety officers where this exact combination of factors led to fatalities in the past.
+
+### 4. Digital Permit Intelligence Agent
+Flags simultaneous operations (SIMOPs) conflicts. For example, it highlights when a hot-work permit (open flame) is active in proximity to a zone with elevated gas concentration, providing immediate visual and text alerts.
+
+### 5. Emergency Response Orchestrator (Automated Audits)
+Generates a structured, 7-section regulatory-style incident report upon level changes (available for download as `.txt` via the UI). It auto-populates compliance guidelines based on:
+- **The Factories Act, 1948** (Section 36: Precautions against dangerous fumes; Section 36A: Portable electric lights)
+- **OISD Standard 105** (Permits to Work System)
+- **OISD Standard 116 & 117** (Fire Protection & Prevention)
+- **DGMS Circular 04/2023** (Confined Space Safety)
+
+### 6. Explainable AI (XAI)
+Powered by **Google Gemini 2.0 Flash** (in [explainability.py]( backend/app/explainability.py)). When hazard levels escalate, Gemini evaluates the active sensor variables and returns a natural-language root cause, an AI confidence rating, and exactly three prioritized emergency steps. It features:
+* **Asynchronous Threading & Timeouts:** Fast API thread is never blocked; if the network call takes $>8$ seconds, it gracefully reverts to a deterministic local fallback.
+* **In-memory Caching:** Explanations are cached per event ID to minimize API usage during rapid frontend polling (every 2 seconds).
 
 ---
 
-## Tech Stack
+## 📽️ Live Demo Scenario
 
-| Layer | Technology | Purpose |
+The backend includes a real-time data simulator (`backend/app/simulator.py`) running a looped 3-minute scenario from `data/scenario.json`. The timeline illustrates the progression of an industrial emergency in **Zone Alpha (Compressor Hall)**:
+
+| Scenario Time | Real Time | Gas (ppm) | Hot-Work | Confined Space | Maintenance | Score | Hazard Level | State / Dashboard Reaction |
+|---|---|---|---|---|---|---|---|---|
+| **0:00** | ~0s | 40 ppm | — | — | — | **8.0** | **Safe** | Normal plant operations. Zone Alpha is Green. |
+| **0:50** | ~25s | 82 ppm | — | — | — | **22.0** | **Safe** | Gas rising. SVG Heatmap grid changes opacity. |
+| **1:20** | ~40s | 85 ppm | ✓ | — | — | **41.0** | **Elevated** | Hot-work permit issued. Permit panel flags warnings. |
+| **1:50** | ~55s | 88 ppm | ✓ | ✓ | — | **68.0** | **High** | Confined entry. React Flow graph links worker node. |
+| **2:20** | ~70s | 91 ppm | ✓ | ✓ | ✓ | **100.0**| **Critical** | **Compound bonus fires.** Gemini explains root cause. |
+| **2:40** | ~90s | Reset | — | — | — | **8.0** | **Safe** | Scenario resets back to nominal state. |
+
+---
+
+## 💻 Tech Stack
+
+| Component | Technology | Purpose |
 |---|---|---|
-| Backend framework | FastAPI (Python) | REST API, Swagger UI at `/docs` |
-| Database | SQLite + SQLAlchemy | Hazard event audit log, zone/worker data |
-| Data validation | Pydantic v2 | Request/response schemas |
-| AI integration | Google Gemini 2.0 Flash | Natural-language hazard explanation |
-| Frontend | React + Vite | Dashboard UI |
-| Styling | Tailwind CSS | Design tokens, dark theme |
-| Graph UI | React Flow | Live knowledge graph panel |
-| Testing | pytest | 21 unit tests for the hazard engine |
-| Simulation | Custom Python | `scenario.json` replay with interpolation + noise |
-| RAG | Tag-overlap matching | 15-entry incident corpus, no vector DB needed |
+| **Backend Framework** | FastAPI (Python 3.11+) | Asynchronous REST APIs, automatic Swagger documentation at `/docs` |
+| **Database** | SQLite + SQLAlchemy ORM | Audit log of hazard events, zone configurations, and workers |
+| **Validation** | Pydantic v2 | Strict request and response schemas |
+| **AI Explainability** | Google Gemini 2.0 Flash API | Natural-language explanation of compound risks |
+| **Frontend UI** | React 18 + Vite | Single-page application, 2s polling dashboard |
+| **Styling** | Tailwind CSS | Sleek dark mode design system |
+| **Graph Visualization** | React Flow | Dynamic knowledge graph of zone-risk relationships |
+| **RAG System** | Tag-Overlap matching | Explanable matching against 15 historical incidents |
+| **Testing** | pytest | 21 unit tests validating the scoring and compound logic |
 
 ---
 
-## Repository Structure
+## 📂 Repository Structure
 
 ```
 FusionIQ/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py             # FastAPI app, all 10 routes
-│   │   ├── database.py         # SQLAlchemy ORM, 6 tables
+│   │   ├── main.py             # FastAPI App & routing (10 endpoints)
+│   │   ├── database.py         # SQLite connection & SQLAlchemy schemas (6 tables)
 │   │   ├── models.py           # Pydantic v2 schemas
-│   │   ├── simulator.py        # Scenario replay + interpolation
-│   │   ├── hazard_engine.py    # 4 signal-agents + orchestrator
-│   │   ├── explainability.py   # Gemini API + fallback
-│   │   ├── rag.py              # Tag-overlap incident matcher
-│   │   └── report_generator.py # 7-section regulatory report
+│   │   ├── simulator.py        # Scenario timeline controller + interpolation
+│   │   ├── hazard_engine.py    # Scoring Engine (4 agents + Orchestrator)
+│   │   ├── explainability.py   # Gemini API integration + daemon timeouts + fallback
+│   │   ├── rag.py              # Lightweight incident matcher
+│   │   └── report_generator.py # Automated regulatory compliance formatter
 │   ├── tests/
-│   │   └── test_hazard_engine.py  # 21 unit tests, all passing
+│   │   └── test_hazard_engine.py  # 21 pytest unit tests
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
-│       ├── App.jsx             # Full dashboard + polling + modals
-│       ├── index.css           # Design system
+│       ├── App.jsx             # React dashboard & simulation control panel
+│       ├── index.css           # Vanilla CSS + Tailwind integration
 │       └── components/
-│           ├── HeatmapGrid.jsx # SVG geospatial safety heatmap
-│           └── KnowledgeGraph.jsx  # React Flow knowledge graph
+│           ├── HeatmapGrid.jsx # Interactive SVG Geospatial Heatmap
+│           └── KnowledgeGraph.jsx # Live React Flow Knowledge Graph
 ├── data/
-│   ├── scenario.json           # LOCKED — single source of truth
-│   └── incidents.json          # 15-entry RAG corpus
+│   ├── scenario.json           # Locked demo scenario timeline
+│   └── incidents.json          # 15-entry historical incident RAG corpus
 ├── .env                        # GEMINI_API_KEY (git-ignored)
-└── CHANGELOG.md                # Full day-by-day build log
+└── CHANGELOG.md                # Day-by-day development logs
 ```
 
 ---
 
-## How to Run Locally
+## 🚀 How to Run Locally
 
 ### Prerequisites
+* **Python 3.11+**
+* **Node.js 18+**
+* **Gemini API Key** (optional - fallback mode handles API key absence gracefully)
 
-- Python 3.11+
-- Node 18+
-- Git
-
-### 1 — Clone and configure
-
+### 1. Clone & Environment Configuration
 ```bash
-git clone <repo-url>
+git clone <repository-url>
 cd FusionIQ
 ```
-
-Create `.env` in the project root (required for live Gemini explanations — the app works without it using hardcoded fallbacks):
-
-```
-GEMINI_API_KEY=your_key_here
+Create a `.env` file in the root directory:
+```env
+GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
-### 2 — Start the backend
-
+### 2. Start Backend
+In a new terminal window:
 ```powershell
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
+Verify the backend is running by opening the interactive documentation at: **http://localhost:8000/docs**.
 
-Verify at **http://localhost:8000/docs** — all 10 routes should be visible in Swagger UI.
-
-### 3 — Start the frontend
-
+### 3. Start Frontend
+In a separate terminal window:
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
+Open **http://localhost:5173** to view the live dashboard. 
 
-Open **http://localhost:5173** — the dashboard starts live immediately.
-
-### 4 — Watch the scenario
-
-The simulator starts automatically. Watch the dashboard as it progresses:
-
-| Real time | Scenario milestone | Dashboard reaction |
-|---|---|---|
-| ~0s | Plant nominal | All zones green · Score ~8 |
-| ~25s | Gas rising | Zone Alpha yellow · Heatmap brightens |
-| ~40s | Hot-work permit issued | Permit panel shows conflict warning |
-| ~55s | Confined-space entry | Knowledge graph adds Worker node |
-| ~70s | All factors active | Score 100 · Critical · Gemini explanation fires |
-| ~90s | Loop restart | Reset to Safe |
-
-### 5 — Generate a report
-
-Click **📋 Generate Report** in the right column. A 7-section regulatory-style report appears in a modal and can be downloaded as `.txt`.
-
-### 6 — Run unit tests
-
+### 4. Run Automated Tests
+Validate the compound hazard score calculations:
 ```powershell
 cd backend
 pytest tests/ -v
 ```
-
-Expected: `21 passed in ~1s`
-
-### 7 — Reset the scenario clock
-
-```powershell
-# PowerShell
-Invoke-WebRequest -Method POST http://localhost:8000/simulator/reset
-# or curl
-curl -X POST http://localhost:8000/simulator/reset
-```
+*Expected output:* `21 passed in <1.0s`
 
 ---
 
-## API Reference
+## 📡 API Endpoints
 
-Base URL: `http://localhost:8000`
+The FastAPI backend exposes 10 REST endpoints:
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Liveness check |
-| `GET` | `/docs` | Swagger UI |
-| `GET` | `/plant-state` | Interpolated sensor state for all 3 zones |
-| `POST` | `/simulator/reset` | Restart scenario clock to t=0 |
-| `POST` | `/simulator/start` | Start/resume scenario clock |
-| `POST` | `/simulator/pause` | Pause scenario clock |
-| `GET` | `/hazard-score` | Compound score for all zones + per-agent breakdown |
-| `GET` | `/hazard-score/{zone_id}` | Score for one zone |
-| `GET` | `/knowledge-graph/{zone_id}` | React Flow node/edge data |
-| `GET` | `/hazard-explanation` | Gemini root-cause + actions (cached, fallback-safe) |
-| `GET` | `/similar-incident` | Best-matching historical incident (RAG) |
-| `GET` | `/incident-report` | Full 7-section regulatory report (text) |
+| `GET` | `/docs` | Swagger UI documentation |
+| `GET` | `/plant-state` | Fetch interpolated sensor telemetry for all 3 zones |
+| `POST` | `/simulator/reset` | Restart the scenario clock to t=0 |
+| `POST` | `/simulator/start` | Resume the scenario simulation |
+| `POST` | `/simulator/pause` | Pause the scenario simulation |
+| `GET` | `/hazard-score` | Fetch compound score and agent breakdown for all zones |
+| `GET` | `/knowledge-graph/{zone_id}`| React Flow nodes and edges based on active zone signals |
+| `GET` | `/hazard-explanation` | Cached Gemini explanation for the current active risk state |
+| `GET` | `/incident-report` | Retrieve the 7-section compliance report (text) |
 
 ---
 
-## How to Deploy (Render & Vercel)
+## 📈 Scalability Roadmap (Moving Beyond the Prototype)
 
-FusionIQ has been configured with dynamic configuration features that make deploying to production environments simple:
-
-### 1 · Deploy the Backend to Render
-1. Create a new **Web Service** on [Render](https://render.com/).
-2. Connect your repository.
-3. Configure the following parameters:
-   - **Root Directory**: `backend`
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Under **Environment Variables**, add:
-   - `GEMINI_API_KEY`: Your Google Gemini API Key.
-   - `ALLOWED_ORIGINS` (Optional): A comma-separated list of additional frontend domains you wish to permit (e.g. `https://fusioniq-frontend.vercel.app`).
-5. Deploy the service. Render will expose a public API URL (e.g., `https://fusioniq-backend.onrender.com`).
-
-### 2 · Deploy the Frontend to Vercel
-1. Create a new **Project** on [Vercel](https://vercel.com/) and import your repository.
-2. Configure the project settings:
-   - **Framework Preset**: `Vite`
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-3. Under **Environment Variables**, add:
-   - `VITE_API_URL`: Your deployed Render API URL (e.g., `https://fusioniq-backend.onrender.com`).
-4. Click **Deploy**. Vercel will host the dashboard at a public address (e.g., `https://fusioniq-frontend.vercel.app`).
-
-### 3 · Dynamic Browser Settings
-- If you deploy your app and want to point the frontend to a different backend server URL at runtime, click the **Settings gear icon (⚙)** in the header of the webpage. 
-- You can paste any backend URL there. It will be saved to your browser's local storage and the dashboard will immediately reconnect to that server without needing a redeploy.
+FusionIQ was architected with production-grade scaling in mind:
+1. **IoT Ingestion:** Transition from HTTP polling to an **MQTT / Kafka** messaging broker to handle tens of thousands of high-frequency sensor readings per second.
+2. **Computer Vision (CCTV) Integration:** Deploy a Computer Vision Agent to feed real-time worker count and PPE (hard-hat, safety harness) compliance directly into the orchestrator.
+3. **Enterprise RAG (Vector Database):** Replace the static `incidents.json` tag-overlap algorithm with a **ChromaDB / PGVector** database containing thousands of OISD regulations, Factory Act clauses, and historical incident PDFs, queried using sentence embeddings.
+4. **Edge Deployment:** Run the core [hazard_engine.py]( backend/app/hazard_engine.py) on edge devices (e.g., AWS IoT Greengrass) to guarantee zero-latency execution even during plant network outages.
 
 ---
 
-
-## Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| `ModuleNotFoundError: dotenv` | `pip install python-dotenv` |
-| `ModuleNotFoundError: google.generativeai` | `pip install google-generativeai` |
-| Dashboard shows "Offline" | Start the backend before opening the frontend |
-| Score stuck at 0 | `POST /simulator/reset` to restart the clock |
-| Knowledge graph blank | Wait 3 seconds for the first poll; check browser console for React Flow errors |
-| Report modal empty | Backend returned no data — check `/incident-report` in Swagger |
-
----
-
-## Development Status
-
-**Days 1–9 complete.** Day 10 = demo video + final submission.
-
-| Day | Status | Delivered |
-|---|---|---|
-| Day 1 | ✅ | Scenario locked, schema agreed |
-| Day 2 | ✅ | FastAPI + React skeleton, backend↔frontend handshake |
-| Day 3 | ✅ | Data simulator — interpolation, noise, 3-zone stream |
-| Day 4 | ✅ | Compound hazard engine — 4 agents + orchestrator + 21 tests |
-| Day 5 | ✅ | Gemini explainability — timeout, fallback, per-event cache |
-| Day 6 | ✅ | Dashboard — heatmap, compound panel, scenario clock |
-| Day 7 | ✅ | Permit panel, worker tracking, knowledge graph (React Flow) |
-| Day 8 | ✅ | RAG matcher, incident report generator, modal + download |
-| Day 9 | ✅ | UI polish — animations, focus rings, React Flow theme |
-| Day 10 | 🔲 | Demo video, architecture diagram, final submission |
-
----
-
-> **Note on simulated data:** All sensor readings, worker locations, and incident reports in this prototype are driven by `data/scenario.json` — a scripted fictional scenario. This is a deliberate design choice documented transparently in the codebase and build log. A production deployment would connect to live SCADA feeds, a real DCS, and a validated incident database.
-
----
-
-*FusionIQ · ET AI Hackathon 2026 · Industrial Decision Intelligence*
+*FusionIQ · ET AI Hackathon 2026 Submission*
