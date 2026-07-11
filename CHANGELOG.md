@@ -2,12 +2,11 @@
 
 > **Project:** Compound Industrial Hazard Detection Prototype
 > **Event:** ET AI Hackathon 2026
-> **Build target:** 10-day sprint (Days 1–10)
-> **Last updated:** 2026-07-11
+> **Last updated:** 2026-07-12
 
 ---
 
-## Current Build Status — Day 7 Complete ✅
+## Current Build Status — Task10 Complete ✅
 
 The full pipeline is live end-to-end: scenario → simulator → hazard engine → Gemini explanation → React dashboard (heatmap + knowledge graph + all panels). Serving on `localhost:5173`.
 
@@ -18,20 +17,20 @@ The full pipeline is live end-to-end: scenario → simulator → hazard engine �
 | FastAPI backend | ✅ Running | `uvicorn app.main:app --reload` on port 8000, v0.8.0 |
 | SQLite database | ✅ Live | Tables created + zone rows seeded on first startup |
 | Scenario data | ✅ Locked | `data/scenario.json` is the single source of truth |
-| Data simulator | ✅ Day 3 complete | Interpolated, noisy, looping sensor stream |
-| Hazard engine | ✅ Day 4 complete | 4 signal-agents + orchestrator + compound bonus |
+| Data simulator | ✅ Task 3 complete | Interpolated, noisy, looping sensor stream |
+| Hazard engine | ✅ Task 4 complete | 4 signal-agents + orchestrator + compound bonus |
 | Unit tests | ✅ 21/21 passing | Full coverage of all engine logic |
-| Gemini explainability | ✅ Day 5 complete | Live Gemini + hardcoded fallback, cached per event |
-| Geospatial Heatmap | ✅ Day 6 complete | SVG 6×4 grid, live score-driven colors |
-| Compound Hazard Panel | ✅ Day 6 complete | 4-agent bars, interaction bonus, level badge |
-| Permit list panel | ✅ Day 7 complete | Conflict detection: hot-work vs. gas >75% LEL |
-| Worker tracking panel | ✅ Day 7 complete | Name, role, zone, CS/maintenance badges |
-| Knowledge graph | ✅ Day 7 complete | React Flow, 6 node types, 3s live polling |
-| RAG incident matcher | ✅ Day 8 complete | Tag-overlap + severity tie-break, 15-incident corpus |
-| Similar Incident card | ✅ Day 8 complete | Live panel in left column, polls `/similar-incident` every 6 s |
-| Incident report generator | ✅ Day 8 complete | 7-section regulatory report, modal viewer + .txt download |
-| UI polish | ✅ Day 9 complete | Line-clamp, modal animation, focus rings, React Flow CSS |
-| Video + submission | 🔲 Day 10 | Record, document, submit |
+| Gemini explainability | ✅ Task 5 complete | Live Gemini + hardcoded fallback, cached per event |
+| Geospatial Heatmap | ✅ Task 6 complete | SVG 6×4 grid, live score-driven colors |
+| Compound Hazard Panel | ✅ Task 6 complete | 4-agent bars, interaction bonus, level badge |
+| Permit list panel | ✅ Task 7 complete | Conflict detection: hot-work vs. gas >75% LEL |
+| Worker tracking panel | ✅ Task 7 complete | Name, role, zone, CS/maintenance badges |
+| Knowledge graph | ✅ Task 7 complete | React Flow, 6 node types, 3s live polling |
+| RAG incident matcher | ✅ Task 8 complete | Tag-overlap + severity tie-break, 15-incident corpus |
+| Similar Incident card | ✅ Task 8 complete | Live panel in left column, polls `/similar-incident` every 6 s |
+| Incident report generator | ✅ Task 8 complete | 7-section regulatory report, modal viewer + .txt download |
+| UI polish | ✅ Task 9 complete | Line-clamp, modal animation, focus rings, React Flow CSS |
+| Video + submission | 🔲 Task 10 | Record, document, submit |
 
 ---
 
@@ -65,9 +64,9 @@ scenario.json  -->  simulator.py  -->  /plant-state API
                                     /hazard-score API --> SQLite (HazardEvent)
                                             |
                                             v
-                                    /knowledge-graph API  (Day 7 UI)
+                                    /knowledge-graph API  (Task 7 UI)
 
-React Frontend (Day 2 skeleton — polls /health only)
+React Frontend (Task 2 skeleton — polls /health only)
 ```
 
 ---
@@ -90,7 +89,7 @@ React Frontend (Day 2 skeleton — polls /health only)
 
 5. **`/hazard-score`** returns the score, level, raw signals, and the per-agent breakdown for all zones. A new `HazardEvent` row is written to SQLite only when the hazard **level changes** (Safe → Elevated → High → Critical) — not on every poll.
 
-6. **`/knowledge-graph/{zone_id}`** returns React Flow-compatible node/edge data describing which factors are contributing to the current hazard, ready for the Day 7 UI panel.
+6. **`/knowledge-graph/{zone_id}`** returns React Flow-compatible node/edge data describing which factors are contributing to the current hazard, ready for the Task 7 UI panel.
 
 ---
 
@@ -136,9 +135,7 @@ level:
 
 ---
 
-### Day 1 — Scenario & Schema Lock ✅
-
-**Date completed:** Before coding began
+### Task 1 — Scenario & Schema Lock ✅
 
 - Wrote `data/scenario.json` — single source of truth for all simulator values, keyframe timestamps, expected scores, and worker/permit metadata
 - Agreed SQLite schema (6 tables: zones, gas_readings, permits, workers, maintenance, hazard_events)
@@ -146,35 +143,31 @@ level:
 
 **Files added/modified:**
 - `data/scenario.json` — locked scenario with 6 keyframes, 3 zones, 7 workers, 1 permit
-- `data/incidents.json` — placeholder (to be filled Day 8)
+- `data/incidents.json` — placeholder (to be filled Task 8)
 - `.gitignore` — excludes `node_modules/`, `.env`, `__pycache__/`, `*.db`
 - `README.md` — project overview
 
 ---
 
-### Day 2 — Stack Skeleton ✅
-
-**Date completed:** Before Day 3
+### Task 2 — Stack Skeleton ✅
 
 **Backend:**
 - `backend/app/main.py` — FastAPI app with `lifespan` startup hook, CORS middleware (allows localhost:5173 and localhost:3000), `/health` route returning `{status, timestamp, version}`
 - `backend/app/database.py` — SQLAlchemy engine + session factory + 6 ORM models (Zone, GasReading, Permit, Worker, Maintenance, HazardEvent) + `init_db()` + `_seed_zones()` idempotent seeder
 - `backend/app/models.py` — Pydantic v2 schemas for all API responses
 - `backend/requirements.txt` — fastapi, uvicorn[standard], sqlalchemy, python-dotenv, google-generativeai, pydantic>=2.0
-- Stub routes registered for all Day 3–8 endpoints so Swagger UI shows the full planned API surface
+- Stub routes registered for all Task 3–8 endpoints so Swagger UI shows the full planned API surface
 
 **Frontend:**
 - Vite + React scaffold with Tailwind CSS
-- `reactflow` installed (needed for Day 7 knowledge graph panel)
-- `App.jsx` — health-check UI: polls `/health` every 5s, shows connection status pill, Day 2 checklist, build pipeline strip
+- `reactflow` installed (needed for Task 7 knowledge graph panel)
+- `App.jsx` — health-check UI: polls `/health` every 5s, shows connection status pill, Task 2 checklist, build pipeline strip
 
 **End-of-Day-2 checkpoint:** Frontend renders live data from backend. ✅
 
 ---
 
-### Day 3 — Data Simulator ✅
-
-**Date completed:** 2026-07-11
+### Task 3 — Data Simulator ✅
 
 **Files modified:**
 - `backend/app/simulator.py` — fully implemented (was a 65-byte stub)
@@ -205,9 +198,7 @@ Background zones (Beta: ~12–15 ppm, Gamma: ~25–30 ppm, no risk factors) stay
 
 ---
 
-### Day 4 — Compound Hazard Engine ✅
-
-**Date completed:** 2026-07-11
+### Task 4 — Compound Hazard Engine ✅
 
 **Files modified:**
 - `backend/app/hazard_engine.py` — fully implemented (was a 35-byte stub)
@@ -239,7 +230,7 @@ Background zones (Beta: ~12–15 ppm, Gamma: ~25–30 ppm, no risk factors) stay
 - Builds React Flow-compatible `{nodes, edges}` dicts from the current zone state
 - Adds animated edges when level is High or Critical
 - Includes an interaction bonus edge when the compound term fires
-- No Neo4j needed — pure Python dict, rendered by Day 7 frontend
+- No Neo4j needed — pure Python dict, rendered by Task 7 frontend
 
 **New API routes:**
 
@@ -247,7 +238,7 @@ Background zones (Beta: ~12–15 ppm, Gamma: ~25–30 ppm, no risk factors) stay
 |---|---|---|
 | `GET` | `/hazard-score` | Compound score for all zones with per-agent breakdown |
 | `GET` | `/hazard-score/{zone_id}` | Score for a single zone |
-| `GET` | `/knowledge-graph/{zone_id}` | React Flow node/edge data for Day 7 panel |
+| `GET` | `/knowledge-graph/{zone_id}` | React Flow node/edge data for Task 7 panel |
 
 **Unit test results:**
 
@@ -271,9 +262,7 @@ Critical proof test passing:
 
 ---
 
-### Day 5 — Gemini Explainability ✅
-
-**Date completed:** 2026-07-11
+### Task 5 — Gemini Explainability ✅
 
 **Files modified:**
 - `backend/app/explainability.py` — fully implemented (was a 2-line stub)
@@ -299,9 +288,7 @@ Critical proof test passing:
 
 ---
 
-### Day 6 — Dashboard Core Panels + Geospatial Heatmap ✅
-
-**Date completed:** 2026-07-11
+### Task 6 — Dashboard Core Panels + Geospatial Heatmap ✅
 
 **Files modified:**
 - `frontend/src/App.jsx` — rebuilt from skeleton into full dashboard
@@ -333,9 +320,7 @@ Critical proof test passing:
 
 ---
 
-### Day 7 — Secondary Panels + Knowledge Graph ✅
-
-**Date completed:** 2026-07-11
+### Task 7 — Secondary Panels + Knowledge Graph ✅
 
 **Files modified:**
 - `frontend/src/App.jsx` — Permit panel, Worker panel, and Similar Incident stub added
@@ -369,9 +354,7 @@ Critical proof test passing:
 
 ---
 
-### Day 8 — RAG Incident Matcher + Incident Report Generator ✅
-
-**Date completed:** 2026-07-11
+### Task 8 — RAG Incident Matcher + Incident Report Generator ✅
 
 **Files created:**
 - `data/incidents.json` — 15 incident entries
@@ -430,12 +413,10 @@ Critical proof test passing:
 
 ---
 
-### Day 9 — UI Polish ✅
-
-**Date completed:** 2026-07-11
+### Task 9 — UI Polish ✅
 
 **Files modified:**
-- `frontend/src/index.css` — Day 9 polish block appended
+- `frontend/src/index.css` — Task 9 polish block appended
 - `frontend/src/App.jsx` — `modal-enter` class applied to modal inner div; footer version label updated
 
 **What was polished:**
@@ -456,9 +437,7 @@ Critical proof test passing:
 
 ---
 
-### Day 10 — Production Deployment & Simulation Controls ✅
-
-**Date completed:** 2026-07-11
+### Task 10 — Production Deployment & Simulation Controls ✅
 
 **Files modified:**
 - `backend/app/main.py` — added simulator control routes + CORS origin updates
@@ -477,20 +456,20 @@ Critical proof test passing:
 
 ---
 
-## Day Log
+## Task Log
 
-| Day | Status | What was delivered |
+| Task | Status | What was delivered |
 |---|---|---|
-| **Day 1** | ✅ Done | `scenario.json` locked; SQLite schema agreed; repo skeleton pushed |
-| **Day 2** | ✅ Done | FastAPI `/health` + CORS; React+Vite skeleton; frontend ↔ backend handshake confirmed |
-| **Day 3** | ✅ Done | `simulator.py` — keyframe interpolation, ±2 ppm noise, 3-zone background, `/plant-state` live |
-| **Day 4** | ✅ Done | `hazard_engine.py` — 4 signal-agents + orchestrator + compound bonus; 21/21 unit tests pass; `/hazard-score` live |
-| **Day 5** | ✅ Done | `explainability.py` — Gemini `gemini-2.0-flash`, 8 s timeout, fallback per level, event-id cache; `/hazard-explanation` live |
-| **Day 6** | ✅ Done | Full dashboard: `HeatmapGrid.jsx` (SVG 6×4, score-driven colors), Compound Hazard Panel, 4-agent bars, interaction bonus row, scenario clock |
-| **Day 7** | ✅ Done | Permit conflict panel, Worker tracking panel, `KnowledgeGraph.jsx` (React Flow, 6 node types, module-scope nodeTypes fix) |
-| **Day 8** | ✅ Done | 15-entry `incidents.json`; `rag.py` (tag-overlap + severity tie-break); `report_generator.py` (7-section report); `/similar-incident` + `/incident-report` live; Similar Incident card + Report modal + .txt download in dashboard |
-| **Day 9** | ✅ Done | CSS polish: line-clamp, modal-enter animation, focus rings, React Flow control overrides; footer/version bumped to Day 8 build |
-| **Day 10** | ✅ Done | Deployed frontend to Vercel and backend to Render, resolved CORS, implemented play/pause/restart simulation controls, and dynamic settings modal. |
+| **Task 1** | ✅ Done | `scenario.json` locked; SQLite schema agreed; repo skeleton pushed |
+| **Task 2** | ✅ Done | FastAPI `/health` + CORS; React+Vite skeleton; frontend ↔ backend handshake confirmed |
+| **Task 3** | ✅ Done | `simulator.py` — keyframe interpolation, ±2 ppm noise, 3-zone background, `/plant-state` live |
+| **Task 4** | ✅ Done | `hazard_engine.py` — 4 signal-agents + orchestrator + compound bonus; 21/21 unit tests pass; `/hazard-score` live |
+| **Task 5** | ✅ Done | `explainability.py` — Gemini `gemini-2.0-flash`, 8 s timeout, fallback per level, event-id cache; `/hazard-explanation` live |
+| **Task 6** | ✅ Done | Full dashboard: `HeatmapGrid.jsx` (SVG 6×4, score-driven colors), Compound Hazard Panel, 4-agent bars, interaction bonus row, scenario clock |
+| **Task 7** | ✅ Done | Permit conflict panel, Worker tracking panel, `KnowledgeGraph.jsx` (React Flow, 6 node types, module-scope nodeTypes fix) |
+| **Task 8** | ✅ Done | 15-entry `incidents.json`; `rag.py` (tag-overlap + severity tie-break); `report_generator.py` (7-section report); `/similar-incident` + `/incident-report` live; Similar Incident card + Report modal + .txt download in dashboard |
+| **Task 9** | ✅ Done | CSS polish: line-clamp, modal-enter animation, focus rings, React Flow control overrides; footer/version bumped to Task 8 build |
+| **Task 10** | ✅ Done | Deployed frontend to Vercel and backend to Render, resolved CORS, implemented play/pause/restart simulation controls, and dynamic settings modal. |
 
 ---
 
@@ -618,10 +597,10 @@ The frontend reflects t=0 on the next poll.
 | Backend framework | FastAPI (Python) | REST API, auto Swagger docs |
 | Database | SQLite + SQLAlchemy | Hazard event audit log, zone/worker data |
 | Data validation | Pydantic v2 | Request/response schemas |
-| AI integration | Google Gemini API | Natural-language hazard explanation (Day 5) |
+| AI integration | Google Gemini API | Natural-language hazard explanation (Task 5) |
 | Frontend | React + Vite | Dashboard UI |
 | Styling | Tailwind CSS | Design system |
-| Graph UI | React Flow | Knowledge graph panel (Day 7) |
+| Graph UI | React Flow | Knowledge graph panel (Task 7) |
 | Testing | pytest | Unit tests for hazard engine |
 | Simulation | Custom Python | scenario.json replay with interpolation + noise |
 
@@ -637,29 +616,29 @@ FusionIQ/
 │   │   ├── main.py           [done] v0.8.0 — all 10 routes live incl. /similar-incident + /incident-report
 │   │   ├── database.py       [done] SQLAlchemy ORM, init_db(), 6 tables
 │   │   ├── models.py         [done] Pydantic v2 schemas for all API responses
-│   │   ├── simulator.py      [done] Day 3 — keyframe interpolation, ±2 ppm noise, 3-zone stream
-│   │   ├── hazard_engine.py  [done] Day 4 — 4 agents + orchestrator + compound bonus + KG builder
-│   │   ├── explainability.py [done] Day 5 — Gemini API, 8 s timeout, fallback, per-event cache
-│   │   ├── rag.py            [done] Day 8 — tag-overlap scorer, severity tie-break, zero-overlap guard
-│   │   └── report_generator.py  [done] Day 8 — 7-section regulatory report, compliance refs, immediate actions
+│   │   ├── simulator.py      [done] Task 3 — keyframe interpolation, ±2 ppm noise, 3-zone stream
+│   │   ├── hazard_engine.py  [done] Task 4 — 4 agents + orchestrator + compound bonus + KG builder
+│   │   ├── explainability.py [done] Task 5 — Gemini API, 8 s timeout, fallback, per-event cache
+│   │   ├── rag.py            [done] Task 8 — tag-overlap scorer, severity tie-break, zero-overlap guard
+│   │   └── report_generator.py  [done] Task 8 — 7-section regulatory report, compliance refs, immediate actions
 │   ├── tests/
 │   │   └── test_hazard_engine.py  [done] 21 unit tests, all passing
 │   ├── requirements.txt      [done]
 │   └── fusioniq.db           [done] Auto-created on first run
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx           [done] Day 8 — IncidentPanel + ReportModal + report button + /similar-incident poll
-│   │   ├── index.css         [done] Day 9 — line-clamp, modal-enter animation, focus ring, React Flow overrides
+│   │   ├── App.jsx           [done] Task 8 — IncidentPanel + ReportModal + report button + /similar-incident poll
+│   │   ├── index.css         [done] Task 9 — line-clamp, modal-enter animation, focus ring, React Flow overrides
 │   │   └── components/
-│   │       ├── HeatmapGrid.jsx    [done] Day 6 — SVG 6×4 geospatial heatmap
-│   │       └── KnowledgeGraph.jsx [done] Day 7 — React Flow, 6 node types, module-scope nodeTypes (error#002 fixed)
+│   │       ├── HeatmapGrid.jsx    [done] Task 6 — SVG 6×4 geospatial heatmap
+│   │       └── KnowledgeGraph.jsx [done] Task 7 — React Flow, 6 node types, module-scope nodeTypes (error#002 fixed)
 │   ├── package.json          [done] reactflow v11 installed
 │   ├── tailwind.config.js    [done] custom color tokens + glow keyframes
 │   └── vite.config.js        [done] resolve.dedupe for reactflow
 ├── data/
 │   ├── scenario.json         [LOCKED] single source of truth — never edit
-│   └── incidents.json        [done] Day 8 — 15 entries (3 real-based, 12 fictional), all 4 tags covered
-├── docs/                     [pending] Architecture diagram, detailed doc — Day 10
+│   └── incidents.json        [done] Task 8 — 15 entries (3 real-based, 12 fictional), all 4 tags covered
+├── docs/                     [pending] Architecture diagram, detailed doc — Task 10
 ├── .env                      [done] git-ignored — put GEMINI_API_KEY here
 ├── .gitignore                [done]
 ├── README.md                 [done]
