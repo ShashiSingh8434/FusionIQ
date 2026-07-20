@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0&display=block');
 
 @tailwind base;
 @tailwind components;
@@ -14,114 +15,257 @@ html, body, #root {
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background-color: #0f1117;
-  color: #e2e8f0;
+  background-color: #101419;
+  color: #e1e2e9;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track  { background: #0f1117; }
-::-webkit-scrollbar-thumb  { background: #2d3748; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #4a5568; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: #0b0e13; }
+::-webkit-scrollbar-thumb  { background: #414751; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #8b919d; }
 
 /* ── Animations ─────────────────────────────────────────────────────── */
 @keyframes fadeIn  { from { opacity: 0; }                        to { opacity: 1; } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse   { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-@keyframes glow-critical { 0%,100% { box-shadow: 0 0 8px rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 20px rgba(239,68,68,0.8); } }
-@keyframes glow-high     { 0%,100% { box-shadow: 0 0 8px rgba(249,115,22,0.4); } 50% { box-shadow: 0 0 20px rgba(249,115,22,0.6); } }
-@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes glowCritical { 0%,100% { box-shadow: 0 0 8px rgba(255,180,171,0.3); } 50% { box-shadow: 0 0 24px rgba(255,180,171,0.6); } }
+@keyframes glowHigh     { 0%,100% { box-shadow: 0 0 8px rgba(249,115,22,0.3); }  50% { box-shadow: 0 0 18px rgba(249,115,22,0.6); } }
+@keyframes modalIn { from { opacity: 0; transform: scale(0.97) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+/* ── Stitch surface utility classes ─────────────────────────────────── */
+.surface-1 { background: #1d2025; border: 1px solid #414751; }
+.surface-2 { background: #272a30; border: 1px solid #414751; }
+.surface-3 { background: #32353b; }
+.border-subtle { border-color: #414751; }
 
 /* ── Component layer ────────────────────────────────────────────────── */
 @layer components {
 
-  /* Cards */
+  /* ── Cards — Stitch "heavy physical" card aesthetic ─────────────── */
   .card {
-    @apply bg-surface-card border border-surface-border rounded-xl p-4;
+    background: #1d2025;
+    border: 1px solid #414751;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+  }
+  .card-lg {
+    background: #1d2025;
+    border: 1px solid #414751;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
   }
   .card-sm {
-    @apply bg-surface-card border border-surface-border rounded-lg p-3;
+    background: #272a30;
+    border: 1px solid #414751;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+  }
+  .card-tight {
+    background: #1d2025;
+    border: 1px solid #414751;
+    border-radius: 0.25rem;
+    padding: 0.625rem 1rem;
   }
 
-  /* Level badges */
-  .badge-safe     { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-safe/10     border border-safe/30     text-safe; }
-  .badge-elevated { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-elevated/10 border border-elevated/30 text-elevated; }
-  .badge-high     { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-high/10     border border-high/30     text-high; }
-  .badge-critical { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-critical/10 border border-critical/30 text-critical; }
+  /* ── Status badges — chip style matching Stitch ─────────────────── */
+  .badge-safe {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold;
+    background: rgba(69,223,164,0.10);
+    border: 1px solid rgba(69,223,164,0.25);
+    color: #45dfa4;
+    border-radius: 2px;
+  }
+  .badge-elevated {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold;
+    background: rgba(250,189,52,0.10);
+    border: 1px solid rgba(250,189,52,0.25);
+    color: #fabd34;
+    border-radius: 2px;
+  }
+  .badge-high {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold;
+    background: rgba(249,115,22,0.10);
+    border: 1px solid rgba(249,115,22,0.25);
+    color: #f97316;
+    border-radius: 2px;
+  }
+  .badge-critical {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold;
+    background: rgba(255,180,171,0.10);
+    border: 1px solid rgba(255,180,171,0.25);
+    color: #ffb4ab;
+    border-radius: 2px;
+  }
 
-  /* Status dot */
-  .status-dot { @apply inline-block w-2 h-2 rounded-full; }
+  /* ── Status dot ─────────────────────────────────────────────────── */
+  .status-dot { @apply inline-block w-1.5 h-1.5 rounded-full; }
 
-  /* Section headings */
-  .section-label { @apply text-xs font-semibold text-surface-muted uppercase tracking-widest mb-3; }
+  /* ── Section labels — Stitch "label-sm uppercase tracking" ─────── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b919d;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+  .section-label-lg {
+    font-size: 12px;
+    font-weight: 600;
+    color: #c1c7d3;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
 
-  /* Agent bar */
-  .agent-bar-track { @apply w-full h-2 rounded-full bg-surface-border overflow-hidden; }
-  .agent-bar-fill  { @apply h-full rounded-full transition-all duration-700 ease-out; }
+  /* ── Agent bar ──────────────────────────────────────────────────── */
+  .agent-bar-track {
+    width: 100%;
+    height: 4px;
+    border-radius: 9999px;
+    background: #32353b;
+    overflow: hidden;
+  }
+  .agent-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.7s ease-out;
+  }
 
-  /* Glow rings on Critical / High cards */
-  .ring-critical { animation: glow-critical 2s ease-in-out infinite; }
-  .ring-high     { animation: glow-high 2.5s ease-in-out infinite; }
+  /* ── Glow rings ─────────────────────────────────────────────────── */
+  .animate-glow-critical { animation: glowCritical 2s ease-in-out infinite; }
+  .animate-glow-high     { animation: glowHigh 2.5s ease-in-out infinite; }
 
-  /* Monospace data values */
-  .data-value { @apply font-mono text-sm tabular-nums; }
+  /* ── Monospace data values ──────────────────────────────────────── */
+  .data-value { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
 
-  /* Action items */
+  /* ── Action items ───────────────────────────────────────────────── */
   .action-item {
-    @apply flex items-start gap-3 p-3 rounded-lg bg-surface border border-surface-border;
+    @apply flex items-start gap-3;
+    background: #272a30;
+    border: 1px solid #414751;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+  }
+
+  /* ── Buttons — Stitch style ─────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 text-xs font-semibold;
+    padding: 0.375rem 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid #414751;
+    background: #272a30;
+    color: #c1c7d3;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .btn:hover { background: #32353b; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    @apply btn;
+    background: #45dfa4;
+    color: #003825;
+    border-color: #45dfa4;
+    font-weight: 600;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+
+  .btn-ghost {
+    @apply btn;
+    background: transparent;
+    border-color: #414751;
+    color: #8b919d;
+  }
+  .btn-ghost:hover { background: #272a30; color: #c1c7d3; }
+
+  .icon-btn {
+    @apply inline-flex items-center justify-center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.25rem;
+    border: 1px solid #414751;
+    background: #272a30;
+    color: #8b919d;
+    transition: all 0.15s;
+    cursor: pointer;
+    font-size: 1.125rem;
+  }
+  .icon-btn:hover { background: #32353b; color: #e1e2e9; }
+
+  /* ── Pill chips ─────────────────────────────────────────────────── */
+  .pill {
+    @apply inline-flex items-center gap-1;
+    font-size: 10px;
+    font-weight: 500;
+    color: #8b919d;
+    background: #272a30;
+    border: 1px solid #414751;
+    border-radius: 9999px;
+    padding: 0.125rem 0.5rem;
+  }
+
+  /* ── Row item ───────────────────────────────────────────────────── */
+  .row-item {
+    background: #272a30;
+    border: 1px solid #414751;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
   }
 }
+
+/* ── Layout rhythm ──────────────────────────────────────────────────── */
+.panel-stack { display: flex; flex-direction: column; gap: 1rem; }
+.page-grid-gap { gap: 1.25rem; }
 
 /* ── Utility extras ─────────────────────────────────────────────────── */
-.animate-fade-in  { animation: fadeIn  0.35s ease-out both; }
-.animate-slide-up { animation: slideUp 0.3s  ease-out both; }
+.animate-fade-in   { animation: fadeIn  0.3s ease-out both; }
+.animate-slide-up  { animation: slideUp 0.25s ease-out both; }
 .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4,0,0.6,1) infinite; }
 
-/* ── Day 9 polish additions ──────────────────────────────────────────── */
-
-/* Smooth scroll globally */
+/* ── Smooth scroll ──────────────────────────────────────────────────── */
 html { scroll-behavior: smooth; }
 
-/* Line clamp utilities */
+/* ── Line clamp ─────────────────────────────────────────────────────── */
 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* Focus ring — accessible but styled */
+/* ── Focus ring ─────────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.7);
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline: 1px solid #60a5fa;
+  outline-offset: 1px;
 }
 
-/* Modal appear animation */
-@keyframes modalIn {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0);    }
-}
-.modal-enter { animation: modalIn 0.22s ease-out both; }
+/* ── Modal animation ────────────────────────────────────────────────── */
+.modal-enter { animation: modalIn 0.2s ease-out both; }
 
-/* Improved scrollbar inside report modal pre block */
-.report-pre::-webkit-scrollbar { width: 4px; }
-.report-pre::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 2px; }
-
-/* Highlight active tag pills on hover */
-.tag-pill {
-  transition: filter 0.15s ease;
-  cursor: default;
-}
-.tag-pill:hover { filter: brightness(1.25); }
-
-/* React Flow overrides */
-.react-flow__background { background-color: #0f1117 !important; }
+/* ── React Flow overrides ───────────────────────────────────────────── */
+.react-flow__background { background-color: #101419 !important; }
 .react-flow__edge-path  { stroke-width: 1.5 !important; }
-.react-flow__minimap    { border-radius: 8px; overflow: hidden; }
-.react-flow__controls   { border-radius: 8px; overflow: hidden; }
+.react-flow__minimap    { border-radius: 4px; overflow: hidden; }
+.react-flow__controls   { border-radius: 4px; overflow: hidden; }
 .react-flow__controls-button {
-  background: #161b27 !important;
-  border-color: #1e2535 !important;
-  color: #8892a4 !important;
+  background: #1d2025 !important;
+  border-color: #414751 !important;
+  color: #8b919d !important;
 }
-.react-flow__controls-button:hover { color: #e2e8f0 !important; }
+.react-flow__controls-button:hover { color: #e1e2e9 !important; }
+
+/* ── Tag pill hover ─────────────────────────────────────────────────── */
+.tag-pill { transition: filter 0.15s ease; }
+.tag-pill:hover { filter: brightness(1.2); }
+
+/* ── Auto-hide scrollbar — visible only on hover/scroll ───────────────
+   Used for compact inner-panel lists (Worker Tracking, AI Diagnostic)
+   so the scrollbar reads as a subtle affordance rather than a fixed
+   visual element on the card. */
+.scroll-fade { scrollbar-color: transparent transparent; }
+.scroll-fade::-webkit-scrollbar-thumb { background: transparent; }
+.scroll-fade:hover { scrollbar-color: #414751 transparent; }
+.scroll-fade:hover::-webkit-scrollbar-thumb { background: #414751; }
+.scroll-fade:hover::-webkit-scrollbar-thumb:hover { background: #8b919d; }

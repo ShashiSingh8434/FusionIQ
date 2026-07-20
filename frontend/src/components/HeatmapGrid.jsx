@@ -18,9 +18,9 @@ import { useMemo } from 'react'
 // ── Constants ────────────────────────────────────────────────────────────────
 const GRID_COLS = 6
 const GRID_ROWS = 4
-const CELL_W    = 80
-const CELL_H    = 70
-const PADDING   = 16
+const CELL_W    = 88
+const CELL_H    = 64
+const PADDING   = 14
 const SVG_W     = GRID_COLS * CELL_W + PADDING * 2
 const SVG_H     = GRID_ROWS * CELL_H + PADDING * 2
 
@@ -161,7 +161,7 @@ function Legend() {
     { label: 'Critical', color: '#ef4444' },
   ]
   return (
-    <div className="flex items-center gap-4 mt-3 px-1">
+    <div className="flex items-center gap-4 mt-4 px-1">
       {items.map(({ label, color }) => (
         <div key={label} className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color, opacity: 0.8 }} />
@@ -183,11 +183,11 @@ export default function HeatmapGrid({ zones = [] }) {
 
   return (
     <div className="animate-fade-in">
-      <div className="section-label">Geospatial Safety Heatmap</div>
+      <div className="section-label-lg">Geospatial Safety Heatmap</div>
 
-      <div className="relative card p-3 overflow-hidden">
+      <div className="relative card-lg overflow-hidden">
         {/* Plant label */}
-        <div className="absolute top-3 left-4 z-10">
+        <div className="absolute top-4 left-5 z-10">
           <span className="text-[10px] font-mono text-surface-muted/60 uppercase tracking-widest">
             Plant Layout — Simulated
           </span>

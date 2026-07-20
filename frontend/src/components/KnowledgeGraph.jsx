@@ -227,8 +227,8 @@ export default function KnowledgeGraph({ currentLevel = 'Safe', backendUrl }) {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <p className="section-label mb-0">Knowledge Graph</p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="section-label-lg mb-0">Knowledge Graph</p>
         <div className="flex items-center gap-2">
           {status === 'loading' && (
             <span className="text-[10px] text-surface-muted animate-pulse">Connecting…</span>
@@ -245,11 +245,12 @@ export default function KnowledgeGraph({ currentLevel = 'Safe', backendUrl }) {
         </div>
       </div>
 
-      {/* Graph canvas */}
+      {/* Graph canvas — full-width section, generous height so it reads as a
+          primary visual anchor rather than a small side panel */}
       <div
-        className="card p-0 overflow-hidden"
+        className="card-lg p-2 overflow-hidden"
         style={{
-          height: 300,
+          height: 640,
           borderColor: `${colors.border}33`,
           transition: 'border-color 0.5s ease',
         }}
@@ -260,7 +261,7 @@ export default function KnowledgeGraph({ currentLevel = 'Safe', backendUrl }) {
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           fitView
-          fitViewOptions={{ padding: 0.3 }}
+          fitViewOptions={{ padding: 0.35 }}
           proOptions={{ hideAttribution: true }}
           minZoom={0.3}
           maxZoom={2}
@@ -273,6 +274,9 @@ export default function KnowledgeGraph({ currentLevel = 'Safe', backendUrl }) {
             style={{ background: '#161b27', border: '1px solid #1e2535', borderRadius: 8 }}
           />
           <MiniMap
+            position="bottom-right"
+            pannable={false}
+            zoomable={false}
             nodeColor={n => ({
               riskNode:   colors.border,
               zoneNode:   '#3b82f6',
@@ -282,7 +286,13 @@ export default function KnowledgeGraph({ currentLevel = 'Safe', backendUrl }) {
               maintNode:  '#a855f7',
             }[n.type] ?? '#1e2535')}
             maskColor="rgba(15,17,23,0.7)"
-            style={{ background: '#0f1117', border: '1px solid #1e2535' }}
+            style={{
+              background: '#0f1117',
+              border: '1px solid #1e2535',
+              width: 90,
+              height: 60,
+              margin: 10,
+            }}
           />
         </ReactFlow>
       </div>

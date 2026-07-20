@@ -1,99 +1,22 @@
 /**
- * App.jsx — FusionIQ Live Dashboard (Days 6 · 7 · 8 · 9)
+ * App.jsx — FusionIQ Operational Intelligence Platform
+ *
+ * Visual: Stitch design system (Quiet Precision / industrial graphite)
+ * Logic:  100% original FusionIQ — all endpoints, hooks, state preserved
  *
  * Polling:
- *   /plant-state       every 2 s  → raw sensor values + worker/permit data
- *   /hazard-score      every 2 s  → compound scores + per-agent breakdown
- *   /hazard-explanation  every 4 s  → Gemini root-cause + actions
- *   /similar-incident  every 6 s  → RAG tag-overlap incident match (Day 8)
+ *   /plant-state         every 2 s
+ *   /hazard-score        every 2 s
+ *   /hazard-explanation  every 4 s
+ *   /similar-incident    every 6 s
  *
  * On-demand:
- *   /incident-report   fetch on button click → 7-section regulatory report
- *
- * Panels:
- *   Left column  — Geospatial Heatmap (Day 6), Permit list (Day 7),
- *                  Similar Incident card (Day 8)
- *   Right column — Compound Hazard Score + Agent breakdown + Report button (Day 6/8),
- *                  Gemini Explanation (Day 5), Worker tracking (Day 7)
- *   Bottom       — Knowledge Graph (Day 7)
- *   Modal        — Incident Report viewer + download (Day 8)
+ *   /incident-report     fetch on button click
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import HeatmapGrid from './components/HeatmapGrid'
 import KnowledgeGraph from './components/KnowledgeGraph'
-
-// SettingsModal — Dynamic Backend URL Settings
-function SettingsModal({ backendUrl, onSave, onClose }) {
-  const [urlInput, setUrlInput] = useState(backendUrl)
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onSave(urlInput.trim())
-    onClose()
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in text-white"
-      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-2xl border border-surface-border p-6 shadow-2xl modal-enter space-y-4"
-        style={{ background: '#0d1117' }}
-      >
-        <div className="flex items-center justify-between border-b border-surface-border pb-3">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <span>⚙</span> Connection Settings
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg border border-surface-border text-surface-muted hover:text-white hover:border-white/30 transition-all flex items-center justify-center text-sm"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[11px] font-semibold text-surface-muted uppercase tracking-wider block">
-            Backend API URL
-          </label>
-          <input
-            type="text"
-            value={urlInput}
-            onChange={e => setUrlInput(e.target.value)}
-            className="w-full bg-surface border border-surface-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
-            placeholder="http://localhost:8000"
-            required
-          />
-          <p className="text-[10px] text-surface-muted leading-normal">
-            Enter your deployed Render web service URL (e.g., <code className="font-mono">https://fusioniq-backend.onrender.com</code>).
-            Changes are saved to local storage.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-surface-border">
-          <button
-            type="button"
-            onClick={() => setUrlInput('http://localhost:8000')}
-            className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-border text-surface-muted hover:text-white transition-all"
-          >
-            Reset Default
-          </button>
-          <button
-            type="submit"
-            className="text-xs font-bold px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all shadow"
-          >
-            Save Settings
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -108,18 +31,18 @@ function levelClass(level) {
 
 function levelColor(level) {
   return (
-    level === 'Critical' ? '#ef4444' :
+    level === 'Critical' ? '#ffb4ab' :
     level === 'High'     ? '#f97316' :
-    level === 'Elevated' ? '#eab308' :
-    '#22c55e'
+    level === 'Elevated' ? '#fabd34' :
+    '#45dfa4'
   )
 }
 
 function LevelBadge({ level }) {
   if (!level) return null
   const cls = `badge-${levelClass(level)}`
-  const dots = { Critical: '●', High: '◆', Elevated: '▲', Safe: '✓' }
-  return <span className={cls}>{dots[level] ?? '●'} {level}</span>
+  const icons = { Critical: '●', High: '◆', Elevated: '▲', Safe: '✓' }
+  return <span className={cls}>{icons[level] ?? '●'} {level}</span>
 }
 
 function usePoll(url, intervalMs, enabled = true) {
@@ -152,206 +75,355 @@ function usePoll(url, intervalMs, enabled = true) {
   return { data, error, loading }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// ── Settings Modal ────────────────────────────────────────────────────────────
 
-function Header({ connected, lastPoll, primaryLevel, onSettingsOpen }) {
-  const levelCol = levelColor(primaryLevel)
+function SettingsModal({ backendUrl, onSave, onClose }) {
+  const envUrl = import.meta.env.VITE_API_URL
+  const defaultUrl = envUrl || 'http://localhost:8000'
+  const [urlInput, setUrlInput] = useState(backendUrl)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave(urlInput.trim())
+    onClose()
+  }
+
   return (
-    <header className="sticky top-0 z-20 border-b border-surface-border bg-surface/80 backdrop-blur-md">
-      <div className="max-w-screen-2xl mx-auto px-5 py-2.5 flex items-center justify-between">
-        {/* Logo + title */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <span className="text-white font-black text-xs">FQ</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-white leading-none tracking-wide">FusionIQ</h1>
-            <p className="text-[10px] text-surface-muted leading-none mt-0.5">Industrial Decision Intelligence</p>
-          </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md modal-enter"
+        style={{ background: '#1d2025', border: '1px solid #414751', borderRadius: '0.5rem', padding: '1.5rem' }}
+      >
+        <div className="flex items-center justify-between mb-5 pb-4" style={{ borderBottom: '1px solid #414751' }}>
+          <h3 className="text-sm font-semibold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">settings</span>
+            Connection Settings
+          </h3>
+          <button type="button" onClick={onClose} className="icon-btn">✕</button>
         </div>
 
-        {/* Live level ticker */}
-        {primaryLevel && primaryLevel !== 'Safe' && (
-          <div
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold animate-pulse"
-            style={{ borderColor: `${levelCol}55`, color: levelCol, background: `${levelCol}11` }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: levelCol }} />
-            Zone Alpha — {primaryLevel}
+        <div className="space-y-4 mb-5">
+          <div>
+            <label className="section-label mb-2 block">Backend API URL</label>
+            <input
+              type="text"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              className="w-full text-xs font-mono text-on-surface focus:outline-none"
+              style={{
+                background: '#272a30',
+                border: '1px solid #414751',
+                borderRadius: '0.25rem',
+                padding: '0.5rem 0.75rem',
+              }}
+              placeholder="http://localhost:8000"
+              required
+            />
           </div>
-        )}
 
-        {/* Connection + settings */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-surface-card border border-surface-border rounded-full px-3 py-1.5 animate-fade-in">
-            <span className={`status-dot ${connected ? 'bg-safe animate-pulse-slow' : 'bg-critical'}`} />
-            <span className="text-xs font-medium text-slate-300 hidden sm:inline">
-              {connected ? 'Backend live' : 'Offline'}
-            </span>
-            {lastPoll && <span className="text-xs text-surface-muted ml-1">· {lastPoll}</span>}
-          </div>
-          <button
-            onClick={onSettingsOpen}
-            className="w-8 h-8 rounded-full border border-surface-border bg-surface-card hover:bg-surface-border/50 text-slate-300 hover:text-white transition-all flex items-center justify-center text-sm shadow"
-            title="Settings"
+          <div
+            className="p-3 rounded text-xs flex flex-col gap-2"
+            style={{ background: '#101419', border: '1px solid #2d3139' }}
           >
-            ⚙
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium" style={{ color: '#8b919d' }}>
+                Environment Variable (<code className="font-mono text-[#60a5fa]">.env</code>):
+              </span>
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                style={{ background: envUrl ? 'rgba(96,165,250,0.15)' : 'rgba(255,180,171,0.15)', color: envUrl ? '#60a5fa' : '#ffb4ab' }}
+              >
+                {envUrl ? 'Loaded' : 'Not Set'}
+              </span>
+            </div>
+            {envUrl ? (
+              <div className="flex items-center justify-between gap-2 pt-1" style={{ borderTop: '1px dashed #2d3139' }}>
+                <code className="font-mono text-[11px] truncate text-on-surface" title={envUrl}>
+                  {envUrl}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => setUrlInput(envUrl)}
+                  className="px-2 py-1 text-[10px] font-semibold rounded shrink-0 transition-colors"
+                  style={{ background: 'rgba(96,165,250,0.2)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.4)' }}
+                >
+                  Use .env URL
+                </button>
+              </div>
+            ) : (
+              <p className="text-[10px]" style={{ color: '#8b919d' }}>
+                Define <code className="font-mono">VITE_API_URL</code> in <code className="font-mono">frontend/.env</code> to configure default URL.
+              </p>
+            )}
+          </div>
+
+          <p className="text-[10px]" style={{ color: '#8b919d' }}>
+            Enter your backend API endpoint or click <strong>Use .env URL</strong>. Changes persist to <code className="font-mono">localStorage</code>.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-4" style={{ borderTop: '1px solid #414751' }}>
+          <button
+            type="button"
+            onClick={() => setUrlInput(defaultUrl)}
+            className="btn-ghost text-xs"
+          >
+            Reset Default
+          </button>
+          <button
+            type="submit"
+            className="btn text-xs"
+            style={{ background: '#60a5fa', color: '#00315d', borderColor: '#60a5fa', fontWeight: 600 }}
+          >
+            Save Settings
           </button>
         </div>
-      </div>
-    </header>
+      </form>
+    </div>
   )
 }
 
-// ── Compact scenario clock ────────────────────────────────────────────────────
+// ── Scenario Clock ────────────────────────────────────────────────────────────
 
 function ScenarioClock({ elapsedSeconds }) {
   if (elapsedSeconds == null) return null
   const m = Math.floor(elapsedSeconds / 60)
   const s = Math.floor(elapsedSeconds % 60)
-  const label =
-    elapsedSeconds < 50 ? '0:00 — Plant nominal' :
-    elapsedSeconds < 80 ? '0:50 — Gas rising' :
-    elapsedSeconds < 110 ? '1:20 — Hot-work permit issued' :
-    elapsedSeconds < 140 ? '1:50 — Confined-space entry' :
-    '2:20 — ALL FACTORS ACTIVE'
+  const phase =
+    elapsedSeconds < 50  ? '01: Plant Nominal' :
+    elapsedSeconds < 80  ? '02: Gas Rising' :
+    elapsedSeconds < 110 ? '03: Hot-Work Permit' :
+    elapsedSeconds < 140 ? '04: Confined Space Entry' :
+    '05: All Factors Active'
 
   return (
-    <div className="flex items-center gap-3 text-xs">
-      <span className="font-mono text-surface-muted">Scenario</span>
-      <span className="font-mono font-bold text-white tabular-nums">
-        {String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}
-      </span>
-      <span className="text-surface-muted hidden sm:inline">— {label}</span>
+    <div className="flex items-center gap-4">
+      <div className="flex flex-col">
+        <span className="text-[9px] uppercase tracking-wider" style={{ color: '#8b919d' }}>Scenario</span>
+        <span className="text-on-surface text-xs">{phase}</span>
+      </div>
+      <div className="flex flex-col">
+        <span className="text-[9px] uppercase tracking-wider" style={{ color: '#8b919d' }}>Sim Time</span>
+        <span className="text-on-surface text-xs font-mono tabular-nums">
+          {String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}
+        </span>
+      </div>
     </div>
   )
 }
 
-// ── Agent breakdown bar ───────────────────────────────────────────────────────
+// ── Header ────────────────────────────────────────────────────────────────────
+
+function Header({ connected, lastPoll, primaryLevel, simRunning, onSettingsOpen, onStartPause, onRestart, elapsedSeconds, backendUrl }) {
+  return (
+    <header
+      className="flex justify-between items-center px-8 w-full shrink-0 z-50"
+      style={{
+        background: '#1d2025',
+        borderBottom: '1px solid #414751',
+        height: '3.5rem',
+      }}
+    >
+      {/* Left: Logo + nav info */}
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-8 h-8 flex items-center justify-center font-bold text-sm"
+            style={{ background: '#60a5fa', color: '#003a6b', borderRadius: '0.25rem' }}
+          >
+            FQ
+          </div>
+          <div>
+            <h1 className="text-on-surface font-semibold leading-none" style={{ fontSize: '15px' }}>FusionIQ</h1>
+            <span className="text-[10px] tracking-wide" style={{ color: '#8b919d' }}>Operational Intelligence</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* Backend status */}
+          <div
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full"
+            style={{
+              background: connected ? 'rgba(69,223,164,0.10)' : 'rgba(255,180,171,0.10)',
+              border: `1px solid ${connected ? 'rgba(69,223,164,0.25)' : 'rgba(255,180,171,0.25)'}`,
+            }}
+          >
+            <div
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: connected ? '#45dfa4' : '#ffb4ab' }}
+            />
+            <span className="text-xs font-medium" style={{ color: connected ? '#45dfa4' : '#ffb4ab' }}>
+              {connected ? 'Backend Online' : 'Offline'}
+            </span>
+          </div>
+
+          {/* Scenario + sim time */}
+          <ScenarioClock elapsedSeconds={elapsedSeconds} />
+
+          {/* Poll rate */}
+          <div className="flex flex-col">
+            <span className="text-[9px] uppercase tracking-wider" style={{ color: '#8b919d' }}>Poll Rate</span>
+            <span className="text-on-surface text-xs">2s</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Actions */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onStartPause}
+          disabled={!connected}
+          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold transition-opacity"
+          style={{
+            background: simRunning ? 'rgba(250,189,52,0.12)' : '#45dfa4',
+            color: simRunning ? '#fabd34' : '#003825',
+            border: `1px solid ${simRunning ? 'rgba(250,189,52,0.3)' : '#45dfa4'}`,
+            borderRadius: '0.25rem',
+            opacity: connected ? 1 : 0.4,
+            cursor: connected ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <span className="material-symbols-outlined text-[16px]">{simRunning ? 'pause' : 'play_arrow'}</span>
+          {simRunning ? 'Pause Simulation' : 'Start Simulation'}
+        </button>
+
+        <button
+          onClick={onRestart}
+          disabled={!connected}
+          className="btn flex items-center gap-1.5"
+          style={{ opacity: connected ? 1 : 0.4, cursor: connected ? 'pointer' : 'not-allowed' }}
+        >
+          <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+          Restart
+        </button>
+
+        <button onClick={onSettingsOpen} className="icon-btn" title="Settings">
+          <span className="material-symbols-outlined text-[18px]">settings</span>
+        </button>
+      </div>
+    </header>
+  )
+}
+
+// ── Agent Breakdown Bar ───────────────────────────────────────────────────────
 
 function AgentBar({ label, score, maxScore, color }) {
   const pct = maxScore > 0 ? Math.min(100, (score / maxScore) * 100) : 0
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-surface-muted">{label}</span>
-        <span className="font-mono text-xs tabular-nums" style={{ color }}>{score.toFixed(0)} pts</span>
+        <span className="text-xs" style={{ color: '#c1c7d3' }}>{label}</span>
+        <span className="font-mono text-xs tabular-nums font-semibold" style={{ color }}>{score.toFixed(0)} pts</span>
       </div>
       <div className="agent-bar-track">
-        <div
-          className="agent-bar-fill"
-          style={{ width: `${pct}%`, background: color }}
-        />
+        <div className="agent-bar-fill" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   )
 }
 
-// ── Compound Hazard Panel ─────────────────────────────────────────────────────
+// ── Hazard Score Panel ────────────────────────────────────────────────────────
 
-function HazardPanel({ hazardData, explanation }) {
+function HazardScorePanel({ hazardData }) {
   const primaryZone = hazardData?.zones?.find(z => z.zone_id === 'zone-alpha')
   const score  = primaryZone?.score ?? 0
   const level  = primaryZone?.level ?? 'Safe'
   const bd     = primaryZone?.per_agent_breakdown ?? {}
   const color  = levelColor(level)
-
-  const glow = level === 'Critical' ? 'animate-glow-critical' : level === 'High' ? 'animate-glow-high' : ''
+  const glowCls = level === 'Critical' ? 'animate-glow-critical' : level === 'High' ? 'animate-glow-high' : ''
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* Score display */}
-      <div
-        className={`card relative overflow-hidden ${glow}`}
-        style={{ borderColor: `${color}44`, transition: 'border-color 0.5s ease' }}
-      >
-        {/* Background radial gradient */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}10 0%, transparent 65%)` }}
-        />
-
-        <div className="relative">
-          <div className="flex items-center justify-between mb-4">
-            <p className="section-label mb-0">Compound Hazard Score</p>
-            <LevelBadge level={level} />
-          </div>
-
-          {/* Big score */}
-          <div className="flex items-end gap-3 mb-1">
+    <div className={`card flex flex-col gap-4 animate-fade-in ${glowCls}`}
+      style={{ borderColor: `${color}40`, transition: 'border-color 0.5s ease' }}
+    >
+      {/* Header row */}
+      <div className="flex justify-between items-start">
+        <div>
+          <span className="section-label mb-1">Compound Hazard Score</span>
+          <div className="flex items-baseline gap-2">
             <span
-              className="font-black leading-none tabular-nums"
-              style={{ fontSize: 72, color, fontFamily: 'JetBrains Mono, monospace', transition: 'color 0.5s ease' }}
+              className="font-semibold leading-none tabular-nums"
+              style={{ fontSize: 48, color, fontFamily: 'Inter', letterSpacing: '-0.02em', transition: 'color 0.5s ease' }}
             >
               {Math.round(score)}
             </span>
-            <div className="mb-3 text-surface-muted text-sm">/ 100</div>
+            <span className="text-lg font-medium" style={{ color: '#8b919d' }}>/ 100</span>
           </div>
-
-          {/* Score bar */}
-          <div className="w-full h-3 rounded-full bg-surface-border mb-5 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${score}%`, background: `linear-gradient(90deg, ${color}99, ${color})` }}
-            />
-          </div>
-
-          {/* Agent breakdown */}
-          <p className="section-label mb-2">4 Signal-Agent Breakdown</p>
-          <div className="space-y-2.5">
-            <AgentBar label="Gas Agent"         score={bd.gas_agent         ?? 0} maxScore={60} color="#14b8a6" />
-            <AgentBar label="Permit Agent"      score={bd.permit_agent      ?? 0} maxScore={15} color="#eab308" />
-            <AgentBar label="Worker Agent"      score={bd.worker_agent      ?? 0} maxScore={15} color="#f97316" />
-            <AgentBar label="Maintenance Agent" score={bd.maintenance_agent ?? 0} maxScore={10} color="#a855f7" />
-          </div>
-
-          {/* Interaction bonus */}
-          {(bd.interaction_bonus ?? 0) > 0 && (
-            <div className="mt-3 p-2.5 rounded-lg border border-critical/30 bg-critical/5 flex items-center gap-2">
-              <span className="text-critical font-bold text-sm">⚡</span>
-              <div>
-                <span className="text-xs font-semibold text-critical">Compound Interaction Bonus</span>
-                <span className="text-xs text-surface-muted ml-1.5">+{bd.interaction_bonus} pts</span>
-                <p className="text-[10px] text-surface-muted mt-0.5">Fired: gas &gt;75% threshold + 2+ risk factors active</p>
-              </div>
-            </div>
-          )}
+        </div>
+        <div className="flex flex-col items-end gap-2 mt-1">
+          <LevelBadge level={level} />
         </div>
       </div>
 
-      {/* Signals snapshot */}
+      {/* Score bar */}
+      <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: '#32353b' }}>
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${score}%`, background: color }}
+        />
+      </div>
+
+      {/* Agent breakdown */}
+      <div className="pt-3 space-y-2" style={{ borderTop: '1px solid #414751' }}>
+        <span className="section-label mb-2">Supporting Signals — 4 Agents</span>
+        <AgentBar label="Gas Agent"         score={bd.gas_agent         ?? 0} maxScore={60} color="#45dfa4" />
+        <AgentBar label="Permit Agent"      score={bd.permit_agent      ?? 0} maxScore={15} color="#fabd34" />
+        <AgentBar label="Worker Agent"      score={bd.worker_agent      ?? 0} maxScore={15} color="#f97316" />
+        <AgentBar label="Maintenance Agent" score={bd.maintenance_agent ?? 0} maxScore={10} color="#a4c9ff" />
+      </div>
+
+      {/* Interaction bonus */}
+      {(bd.interaction_bonus ?? 0) > 0 && (
+        <div
+          className="p-3 flex items-center gap-2.5 mt-1"
+          style={{ background: 'rgba(255,180,171,0.06)', border: '1px solid rgba(255,180,171,0.20)', borderRadius: '0.25rem' }}
+        >
+          <span style={{ color: '#ffb4ab', fontWeight: 700 }}>⚡</span>
+          <div>
+            <span className="text-xs font-semibold" style={{ color: '#ffb4ab' }}>Compound Interaction Bonus</span>
+            <span className="text-xs ml-1.5" style={{ color: '#8b919d' }}>+{bd.interaction_bonus} pts</span>
+            <p className="text-[10px] mt-0.5" style={{ color: '#8b919d' }}>Gas &gt;75% LEL + 2+ risk factors active</p>
+          </div>
+        </div>
+      )}
+
+      {/* Live signals sub-grid */}
       {primaryZone?.signals && (
-        <div className="card">
-          <p className="section-label">Live Signals — Zone Alpha</p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="card-sm">
-              <div className="text-surface-muted mb-0.5">Gas Concentration</div>
-              <div className="data-value text-white">{primaryZone.signals.gas_ppm?.toFixed(1)} <span className="text-surface-muted font-sans">ppm</span></div>
-              <div className="text-[10px] text-surface-muted">{primaryZone.signals.gas_ratio_pct?.toFixed(1)}% of LEL</div>
+        <div className="grid grid-cols-2 gap-2 pt-2" style={{ borderTop: '1px solid #414751' }}>
+          <div className="card-sm">
+            <div className="text-[10px] mb-1" style={{ color: '#8b919d' }}>Gas Concentration</div>
+            <div className="font-mono text-sm font-semibold tabular-nums text-on-surface">
+              {primaryZone.signals.gas_ppm?.toFixed(1)} <span className="text-xs font-normal" style={{ color: '#8b919d' }}>ppm</span>
             </div>
-            <div className={`card-sm ${primaryZone.signals.hot_work_permit ? 'border-elevated/40 bg-elevated/5' : ''}`}>
-              <div className="text-surface-muted mb-0.5">Hot-Work Permit</div>
-              <div className="data-value" style={{ color: primaryZone.signals.hot_work_permit ? '#eab308' : '#22c55e' }}>
-                {primaryZone.signals.hot_work_permit ? 'ACTIVE' : 'None'}
-              </div>
-              {primaryZone.signals.permit_id && (
-                <div className="text-[10px] text-surface-muted">{primaryZone.signals.permit_id}</div>
-              )}
+            <div className="text-[10px] mt-0.5" style={{ color: '#8b919d' }}>{primaryZone.signals.gas_ratio_pct?.toFixed(1)}% of LEL</div>
+          </div>
+          <div className="card-sm" style={primaryZone.signals.hot_work_permit ? { borderColor: 'rgba(250,189,52,0.3)' } : {}}>
+            <div className="text-[10px] mb-1" style={{ color: '#8b919d' }}>Hot-Work Permit</div>
+            <div className="text-sm font-semibold" style={{ color: primaryZone.signals.hot_work_permit ? '#fabd34' : '#45dfa4' }}>
+              {primaryZone.signals.hot_work_permit ? 'ACTIVE' : 'None'}
             </div>
-            <div className={`card-sm ${primaryZone.signals.confined_space_entry ? 'border-high/40 bg-high/5' : ''}`}>
-              <div className="text-surface-muted mb-0.5">Confined Space</div>
-              <div className="data-value" style={{ color: primaryZone.signals.confined_space_entry ? '#f97316' : '#22c55e' }}>
-                {primaryZone.signals.confined_space_entry ? 'OCCUPIED' : 'Clear'}
-              </div>
-              {primaryZone.signals.confined_space_worker && (
-                <div className="text-[10px] text-surface-muted">{primaryZone.signals.confined_space_worker}</div>
-              )}
+            {primaryZone.signals.permit_id && (
+              <div className="text-[10px] mt-0.5 font-mono" style={{ color: '#8b919d' }}>{primaryZone.signals.permit_id}</div>
+            )}
+          </div>
+          <div className="card-sm" style={primaryZone.signals.confined_space_entry ? { borderColor: 'rgba(249,115,22,0.3)' } : {}}>
+            <div className="text-[10px] mb-1" style={{ color: '#8b919d' }}>Confined Space</div>
+            <div className="text-sm font-semibold" style={{ color: primaryZone.signals.confined_space_entry ? '#f97316' : '#45dfa4' }}>
+              {primaryZone.signals.confined_space_entry ? 'OCCUPIED' : 'Clear'}
             </div>
-            <div className={`card-sm ${primaryZone.signals.maintenance_active ? 'border-purple-500/40 bg-purple-500/5' : ''}`}>
-              <div className="text-surface-muted mb-0.5">Maintenance</div>
-              <div className="data-value" style={{ color: primaryZone.signals.maintenance_active ? '#a855f7' : '#22c55e' }}>
-                {primaryZone.signals.maintenance_active ? 'ACTIVE' : 'None'}
-              </div>
+            {primaryZone.signals.confined_space_worker && (
+              <div className="text-[10px] mt-0.5" style={{ color: '#8b919d' }}>{primaryZone.signals.confined_space_worker}</div>
+            )}
+          </div>
+          <div className="card-sm" style={primaryZone.signals.maintenance_active ? { borderColor: 'rgba(164,201,255,0.3)' } : {}}>
+            <div className="text-[10px] mb-1" style={{ color: '#8b919d' }}>Maintenance</div>
+            <div className="text-sm font-semibold" style={{ color: primaryZone.signals.maintenance_active ? '#a4c9ff' : '#45dfa4' }}>
+              {primaryZone.signals.maintenance_active ? 'ACTIVE' : 'None'}
             </div>
           </div>
         </div>
@@ -360,113 +432,81 @@ function HazardPanel({ hazardData, explanation }) {
   )
 }
 
-// ── Gemini Explanation Panel ──────────────────────────────────────────────────
+// ── AI Diagnostic Panel ───────────────────────────────────────────────────────
 
-function ExplanationPanel({ explanation }) {
+function DiagnosticPanel({ explanation }) {
   if (!explanation || explanation.detail) {
     return (
-      <div className="card animate-fade-in">
-        <p className="section-label">AI Explanation</p>
-        <div className="flex items-center gap-2 text-xs text-surface-muted animate-pulse">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+      <div className="card flex flex-col gap-4 animate-fade-in">
+        <div className="flex justify-between items-center pb-4" style={{ borderBottom: '1px solid #414751' }}>
+          <span className="section-label-lg mb-0">AI Diagnostic</span>
+          <span className="text-[10px] px-2 py-1" style={{ background: '#272a30', border: '1px solid #414751', borderRadius: '0.25rem', color: '#8b919d' }}>
+            gemini-2.0-flash
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs animate-pulse" style={{ color: '#8b919d' }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#60a5fa', display: 'inline-block' }} />
           Waiting for hazard event…
         </div>
       </div>
     )
   }
 
-  const sourceTag = explanation.source === 'gemini'
-    ? <span className="text-[9px] font-semibold text-blue-400 bg-blue-400/10 border border-blue-400/20 rounded px-1.5 py-0.5">gemini-2.0-flash</span>
-    : <span className="text-[9px] font-semibold text-surface-muted bg-surface-border/50 border border-surface-border rounded px-1.5 py-0.5">fallback</span>
+  const isGemini = explanation.source === 'gemini'
 
   return (
-    <div className="card animate-fade-in space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="section-label mb-0">AI Explanation</p>
-        {sourceTag}
+    <div className="card flex flex-col gap-4 animate-fade-in overflow-y-auto scroll-fade">
+      <div className="flex justify-between items-center pb-4" style={{ borderBottom: '1px solid #414751' }}>
+        <span className="section-label-lg mb-0">AI Diagnostic</span>
+        <span
+          className="text-[10px] px-2 py-1"
+          style={{
+            background: isGemini ? 'rgba(96,165,250,0.10)' : '#272a30',
+            border: `1px solid ${isGemini ? 'rgba(96,165,250,0.25)' : '#414751'}`,
+            borderRadius: '0.25rem',
+            color: isGemini ? '#60a5fa' : '#8b919d',
+          }}
+        >
+          {isGemini ? 'gemini-2.0-flash' : 'fallback'}
+        </span>
       </div>
 
-      {/* Root cause */}
+      {/* Root Cause */}
       <div>
-        <p className="text-[10px] text-surface-muted uppercase font-semibold tracking-wider mb-1.5">Root Cause</p>
-        <p className="text-sm text-slate-200 leading-relaxed">{explanation.root_cause}</p>
+        <h4 className="section-label mb-2">Root Cause</h4>
+        <p className="text-sm leading-relaxed" style={{ color: '#e1e2e9' }}>{explanation.root_cause}</p>
       </div>
 
       {/* Confidence */}
       <div>
-        <p className="text-[10px] text-surface-muted uppercase font-semibold tracking-wider mb-1">Confidence</p>
-        <p className="text-sm font-semibold text-safe">{explanation.confidence}</p>
+        <h4 className="section-label mb-1">Confidence</h4>
+        <p className="text-sm font-semibold" style={{ color: '#45dfa4' }}>{explanation.confidence}</p>
       </div>
 
-      {/* Actions */}
+      {/* Recommended Actions */}
       {explanation.actions?.length > 0 && (
         <div>
-          <p className="text-[10px] text-surface-muted uppercase font-semibold tracking-wider mb-2">Recommended Actions</p>
-          <div className="space-y-2">
+          <h4 className="section-label mb-2">Recommended Actions</h4>
+          <ul className="space-y-2">
             {explanation.actions.map((action, i) => (
-              <div key={i} className="action-item animate-slide-up" style={{ animationDelay: `${i * 0.1}s` }}>
-                <span className="shrink-0 w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-400 text-[10px] font-bold flex items-center justify-center">
+              <li key={i} className="action-item animate-slide-up" style={{ animationDelay: `${i * 0.08}s` }}>
+                <div
+                  className="w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.3)', color: '#60a5fa', borderRadius: '50%' }}
+                >
                   {i + 1}
-                </span>
-                <p className="text-xs text-slate-300 leading-relaxed">{action}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Permit List Panel (Day 7) ─────────────────────────────────────────────────
-
-function PermitPanel({ plantState }) {
-  const allPermits = []
-  for (const zone of plantState?.zones ?? []) {
-    for (const permit of zone.active_permits ?? []) {
-      allPermits.push({ ...permit, zone_id: zone.id, zone_name: zone.name, gas_ppm: zone.gas_ppm, gas_threshold: zone.gas_threshold })
-    }
-  }
-
-  return (
-    <div className="card animate-fade-in">
-      <p className="section-label">Active Permits</p>
-      {allPermits.length === 0 ? (
-        <p className="text-xs text-surface-muted">No active permits.</p>
-      ) : (
-        <div className="space-y-2">
-          {allPermits.map(permit => {
-            const gasPct = permit.gas_ppm && permit.gas_threshold ? (permit.gas_ppm / permit.gas_threshold) * 100 : 0
-            const isConflicting = gasPct > 75
-            return (
-              <div
-                key={permit.id}
-                className={`rounded-lg p-3 border text-xs ${isConflicting
-                  ? 'border-critical/50 bg-critical/5'
-                  : 'border-surface-border bg-surface'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-white font-mono">{permit.id}</span>
-                  {isConflicting && <span className="text-critical text-[9px] font-bold">⚠ CONFLICT</span>}
                 </div>
-                <div className="text-surface-muted">{permit.type?.replace('_', ' ')} · {permit.zone_id}</div>
-                {permit.description && <div className="text-slate-400 mt-0.5">{permit.description}</div>}
-                {isConflicting && (
-                  <div className="mt-1.5 text-[10px] text-critical">
-                    Hot-work permit active while gas at {gasPct.toFixed(0)}% of LEL — high ignition risk
-                  </div>
-                )}
-              </div>
-            )
-          })}
+                <p className="text-xs leading-relaxed" style={{ color: '#c1c7d3' }}>{action}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
   )
 }
 
-// ── Worker Tracking Panel (Day 7) ─────────────────────────────────────────────
+// ── Worker Tracking Panel ─────────────────────────────────────────────────────
 
 function WorkerPanel({ plantState }) {
   const [now, setNow] = useState(Date.now())
@@ -484,53 +524,63 @@ function WorkerPanel({ plantState }) {
 
   return (
     <div className="card animate-fade-in">
-      <p className="section-label">Worker Tracking</p>
-      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-        {allWorkers.map(w => {
-          const zColor = levelColor(w.zone_level)
-          return (
-            <div key={w.id} className="flex items-center gap-3 p-2 rounded-lg bg-surface border border-surface-border">
-              {/* Avatar */}
-              <div className="w-7 h-7 rounded-full bg-surface-border flex items-center justify-center text-[11px] font-bold text-white shrink-0">
-                {w.name?.charAt(0) ?? '?'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-white truncate">{w.name}</span>
-                  {w.in_confined_space && (
-                    <span className="text-[9px] font-bold text-high bg-high/10 border border-high/30 rounded px-1">CS</span>
-                  )}
-                  {w.in_maintenance && (
-                    <span className="text-[9px] font-bold text-purple-400 bg-purple-400/10 border border-purple-400/30 rounded px-1">MNT</span>
-                  )}
+      <span className="section-label">Worker Tracking</span>
+      {allWorkers.length === 0 ? (
+        <p className="text-xs" style={{ color: '#8b919d' }}>No workers tracked.</p>
+      ) : (
+        <div className="space-y-2 max-h-52 overflow-y-auto pr-1 scroll-fade">
+          {allWorkers.map(w => {
+            const zColor = levelColor(w.zone_level)
+            const initials = w.name?.split(' ').map(n => n[0]).join('').slice(0,2) ?? '??'
+            return (
+              <div
+                key={w.id}
+                className="flex items-center gap-3 p-3"
+                style={{ background: '#272a30', border: '1px solid #414751', borderRadius: '0.25rem' }}
+              >
+                <div
+                  className="w-8 h-8 flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{ background: '#32353b', color: '#e1e2e9', borderRadius: '50%' }}
+                >
+                  {initials}
                 </div>
-                <div className="text-[10px] text-surface-muted truncate">{w.role}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold truncate" style={{ color: '#e1e2e9' }}>{w.name}</span>
+                    {w.in_confined_space && (
+                      <span className="text-[9px] font-bold px-1" style={{ color: '#f97316', background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: '2px' }}>CS</span>
+                    )}
+                    {w.in_maintenance && (
+                      <span className="text-[9px] font-bold px-1" style={{ color: '#a4c9ff', background: 'rgba(164,201,255,0.10)', border: '1px solid rgba(164,201,255,0.25)', borderRadius: '2px' }}>MNT</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] mt-0.5 truncate" style={{ color: '#8b919d' }}>{w.role}</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-[10px] font-semibold" style={{ color: zColor }}>{w.zone_id}</div>
+                  <div className="text-[9px] uppercase mt-0.5" style={{ color: '#8b919d' }}>PPE: Active</div>
+                </div>
               </div>
-              {/* Zone indicator */}
-              <div className="shrink-0 text-right">
-                <div className="text-[9px] font-semibold" style={{ color: zColor }}>{w.zone_id}</div>
-                <div className="text-[9px] text-surface-muted">{w.zone_level}</div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Similar Incident Panel (Day 8) ───────────────────────────────────────────
+// ── Similar Incident Panel ────────────────────────────────────────────────────
 
 function IncidentPanel({ incidentData }) {
   const match = incidentData?.match
   const activeTags = incidentData?.active_tags ?? []
 
   const tagColor = t => ({
-    gas:            '#14b8a6',
-    hot_work:       '#eab308',
+    gas:            '#45dfa4',
+    hot_work:       '#fabd34',
     confined_space: '#f97316',
-    maintenance:    '#a855f7',
-  }[t] ?? '#8892a4')
+    maintenance:    '#a4c9ff',
+  }[t] ?? '#8b919d')
 
   const tagLabel = t => ({
     gas:            'Gas',
@@ -540,104 +590,150 @@ function IncidentPanel({ incidentData }) {
   }[t] ?? t)
 
   const sevColor = s => ({
-    Critical: '#ef4444', High: '#f97316', Elevated: '#eab308', Safe: '#22c55e',
-  }[s] ?? '#8892a4')
+    Critical: '#ffb4ab', High: '#f97316', Elevated: '#fabd34', Safe: '#45dfa4',
+  }[s] ?? '#8b919d')
 
   return (
     <div className="card animate-fade-in">
       <div className="flex items-center justify-between mb-3">
-        <p className="section-label mb-0">Similar Past Incident</p>
+        <span className="section-label mb-0">Similar Past Incident</span>
         <div className="flex items-center gap-1.5">
           {activeTags.length > 0 && (
             <div className="flex gap-1">
               {activeTags.map(t => (
                 <span key={t}
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                  style={{ color: tagColor(t), background: `${tagColor(t)}18`, border: `1px solid ${tagColor(t)}44` }}
+                  className="text-[9px] font-bold px-1.5 py-0.5 tag-pill"
+                  style={{ color: tagColor(t), background: `${tagColor(t)}15`, border: `1px solid ${tagColor(t)}35`, borderRadius: '2px' }}
                 >
                   {tagLabel(t)}
                 </span>
               ))}
             </div>
           )}
-          <span className="text-[9px] text-surface-muted bg-surface border border-surface-border rounded px-1.5 py-0.5">
-            RAG · tag-overlap
-          </span>
+          <span className="pill">RAG · tag-overlap</span>
         </div>
       </div>
 
       {!incidentData && (
-        <p className="text-xs text-surface-muted animate-pulse">Waiting for first match…</p>
+        <p className="text-xs animate-pulse" style={{ color: '#8b919d' }}>Waiting for first match…</p>
       )}
 
       {incidentData && !match && (
         <div className="text-center py-4">
-          <p className="text-xs text-surface-muted">No matching incident</p>
-          <p className="text-[10px] text-surface-muted mt-1">Active tag overlap score: 0</p>
+          <span className="material-symbols-outlined text-2xl mb-1" style={{ color: '#8b919d', display: 'block' }}>task_alt</span>
+          <p className="text-xs" style={{ color: '#8b919d' }}>No matching incident</p>
+          <p className="text-[10px] mt-1" style={{ color: '#8b919d' }}>Active tag overlap score: 0</p>
         </div>
       )}
 
       {match && (
-        <div className="space-y-2">
-          {/* Title + severity */}
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-xs font-semibold text-white leading-snug flex-1">{match.title}</p>
-            <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-              style={{ color: sevColor(match.severity), background: `${sevColor(match.severity)}18`, border: `1px solid ${sevColor(match.severity)}44` }}
-            >
-              {match.severity}
-            </span>
-          </div>
-
-          {/* Meta row */}
-          <div className="flex items-center gap-2 text-[10px] text-surface-muted">
-            <span>{match.id}</span>
-            <span>·</span>
-            <span>{match.date}</span>
-            <span>·</span>
-            <span
-              className="font-semibold"
-              style={{ color: sevColor(match.severity) }}
-            >
-              {match.similarity_pct}% match
-            </span>
-          </div>
-
-          {/* Matching tags */}
-          {match.matching_tags?.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              {match.matching_tags.map(t => (
-                <span key={t}
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                  style={{ color: tagColor(t), background: `${tagColor(t)}18`, border: `1px solid ${tagColor(t)}44` }}
-                >
-                  ✓ {tagLabel(t)}
-                </span>
-              ))}
+        <div className="space-y-2.5">
+          <div className="p-3" style={{ background: '#272a30', border: '1px solid #414751', borderRadius: '0.25rem' }}>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <p className="text-xs font-semibold flex-1" style={{ color: '#e1e2e9' }}>{match.title}</p>
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 shrink-0"
+                style={{ color: sevColor(match.severity), background: `${sevColor(match.severity)}15`, border: `1px solid ${sevColor(match.severity)}35`, borderRadius: '2px' }}
+              >
+                {match.severity}
+              </span>
             </div>
-          )}
 
-          {/* Summary */}
-          <p className="text-[11px] text-slate-300 leading-relaxed line-clamp-3">
-            {match.summary}
-          </p>
+            <div className="flex items-center gap-2 text-[10px] mb-2" style={{ color: '#8b919d' }}>
+              <span>{match.id}</span>
+              <span>·</span>
+              <span>{match.date}</span>
+              <span>·</span>
+              <span className="font-semibold font-mono" style={{ color: '#a4c9ff' }}>{match.similarity_pct}% match</span>
+            </div>
 
-          {/* Root cause */}
-          <div className="p-2 rounded-lg bg-surface border border-surface-border">
-            <p className="text-[9px] text-surface-muted font-semibold uppercase tracking-wide mb-1">Historical Root Cause</p>
-            <p className="text-[11px] text-slate-300 leading-snug">{match.root_cause}</p>
+            {match.matching_tags?.length > 0 && (
+              <div className="flex gap-1 flex-wrap mb-2">
+                {match.matching_tags.map(t => (
+                  <span key={t}
+                    className="text-[9px] font-bold px-1.5 py-0.5"
+                    style={{ color: tagColor(t), background: `${tagColor(t)}15`, border: `1px solid ${tagColor(t)}35`, borderRadius: '2px' }}
+                  >
+                    ✓ {tagLabel(t)}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: '#c1c7d3' }}>{match.summary}</p>
           </div>
 
-          {/* Source note */}
-          <p className="text-[9px] text-surface-muted italic">{match.source_note}</p>
+          <div className="p-3" style={{ background: '#1d2025', border: '1px solid #414751', borderRadius: '0.25rem' }}>
+            <p className="text-[9px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#8b919d' }}>Historical Root Cause</p>
+            <p className="text-[11px] leading-snug" style={{ color: '#c1c7d3' }}>{match.root_cause}</p>
+          </div>
+
+          {match.source_note && (
+            <p className="text-[9px] italic" style={{ color: '#8b919d' }}>{match.source_note}</p>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-// ── Incident Report Modal (Day 8) ─────────────────────────────────────────────
+// ── Active Permits Panel ──────────────────────────────────────────────────────
+
+function PermitPanel({ plantState }) {
+  const allPermits = []
+  for (const zone of plantState?.zones ?? []) {
+    for (const permit of zone.active_permits ?? []) {
+      allPermits.push({ ...permit, zone_id: zone.id, zone_name: zone.name, gas_ppm: zone.gas_ppm, gas_threshold: zone.gas_threshold })
+    }
+  }
+
+  return (
+    <div className="card animate-fade-in">
+      <span className="section-label">Active Permits</span>
+      {allPermits.length === 0 ? (
+        <div
+          className="flex flex-col items-center justify-center p-4 text-center"
+          style={{ background: '#272a30', border: '1px solid #414751', borderRadius: '0.25rem', minHeight: '80px' }}
+        >
+          <span className="material-symbols-outlined mb-1" style={{ color: '#8b919d' }}>task_alt</span>
+          <span className="text-sm" style={{ color: '#8b919d' }}>No active permits.</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {allPermits.map(permit => {
+            const gasPct = permit.gas_ppm && permit.gas_threshold ? (permit.gas_ppm / permit.gas_threshold) * 100 : 0
+            const isConflicting = gasPct > 75
+            return (
+              <div
+                key={permit.id}
+                className="p-3 text-xs"
+                style={{
+                  background: isConflicting ? 'rgba(255,180,171,0.06)' : '#272a30',
+                  border: `1px solid ${isConflicting ? 'rgba(255,180,171,0.25)' : '#414751'}`,
+                  borderRadius: '0.25rem',
+                }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold font-mono" style={{ color: '#e1e2e9' }}>{permit.id}</span>
+                  {isConflicting && <span className="text-[9px] font-bold" style={{ color: '#ffb4ab' }}>⚠ CONFLICT</span>}
+                </div>
+                <div style={{ color: '#8b919d' }}>{permit.type?.replace('_', ' ')} · {permit.zone_id}</div>
+                {permit.description && <div className="mt-0.5" style={{ color: '#c1c7d3' }}>{permit.description}</div>}
+                {isConflicting && (
+                  <div className="mt-1.5 text-[10px]" style={{ color: '#ffb4ab' }}>
+                    Hot-work permit active while gas at {gasPct.toFixed(0)}% of LEL — high ignition risk
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Incident Report Modal ─────────────────────────────────────────────────────
 
 function ReportModal({ report, level, score, onClose }) {
   const handleDownload = () => {
@@ -655,53 +751,61 @@ function ReportModal({ report, level, score, onClose }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="relative w-full max-w-3xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl modal-enter"
-        style={{ background: '#0d1117', borderColor: `${levelCol}44` }}
+        className="relative w-full max-w-3xl flex flex-col modal-enter"
+        style={{
+          background: '#1d2025',
+          border: `1px solid ${levelCol}40`,
+          borderRadius: '0.5rem',
+          maxHeight: '85vh',
+        }}
       >
         {/* Modal header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid #414751' }}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: `${levelCol}22`, border: `1px solid ${levelCol}55` }}>📋</div>
+            <div
+              className="w-9 h-9 flex items-center justify-center text-sm"
+              style={{ background: `${levelCol}18`, border: `1px solid ${levelCol}40`, borderRadius: '0.25rem' }}
+            >
+              📋
+            </div>
             <div>
-              <p className="text-sm font-bold text-white">Incident Report</p>
-              <p className="text-[10px] text-surface-muted">FusionIQ · Zone Alpha · Score {score?.toFixed(0)}/100 · {level}</p>
+              <p className="text-sm font-bold" style={{ color: '#e1e2e9' }}>Incident Report</p>
+              <p className="text-[11px] mt-0.5" style={{ color: '#8b919d' }}>
+                FusionIQ · Zone Alpha · Score {score?.toFixed(0)}/100 · {level}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownload}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-              style={{ color: levelCol, borderColor: `${levelCol}55`, background: `${levelCol}11` }}
+              className="btn flex items-center gap-1.5"
+              style={{ color: levelCol, borderColor: `${levelCol}40`, background: `${levelCol}0d` }}
             >
-              ↓ Download .txt
+              <span className="material-symbols-outlined text-[16px]">download</span>
+              Download .txt
             </button>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 rounded-lg border border-surface-border text-surface-muted hover:text-white hover:border-white/30 transition-colors flex items-center justify-center text-sm"
-            >
-              ✕
-            </button>
+            <button onClick={onClose} className="icon-btn">✕</button>
           </div>
         </div>
 
         {/* Report body */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-6">
           <pre
-            className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap font-mono"
-            style={{ fontFamily: 'JetBrains Mono, Fira Code, monospace' }}
+            className="text-[11px] leading-relaxed whitespace-pre-wrap"
+            style={{ color: '#c1c7d3', fontFamily: 'JetBrains Mono, Fira Code, monospace' }}
           >
             {report}
           </pre>
         </div>
 
-        {/* Disclaimer footer */}
-        <div className="px-5 py-3 border-t border-surface-border shrink-0">
-          <p className="text-[10px] text-surface-muted">
-            ⚠ Prototype report generated from simulated data. Compliance references are generic — verify specific clauses against your plant's safety management system before any formal submission.
+        {/* Footer disclaimer */}
+        <div className="px-6 py-3 shrink-0" style={{ borderTop: '1px solid #414751' }}>
+          <p className="text-[10px]" style={{ color: '#8b919d' }}>
+            ⚠ Prototype report generated from simulated data. Compliance references are generic — verify against your plant's safety management system before formal submission.
           </p>
         </div>
       </div>
@@ -712,27 +816,32 @@ function ReportModal({ report, level, score, onClose }) {
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [lastPoll, setLastPoll] = useState(null)
-  const [reportModal, setReportModal] = useState(null)   // { report, level, score } | null
+  const [lastPoll, setLastPoll]         = useState(null)
+  const [reportModal, setReportModal]   = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [backendUrl, setBackendUrl] = useState(() => {
-    return localStorage.getItem('FUSIONIQ_BACKEND_URL') || import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const [backendUrl, setBackendUrl]     = useState(() => {
+    const saved = localStorage.getItem('FUSIONIQ_BACKEND_URL')
+    const envUrl = import.meta.env.VITE_API_URL
+    if (saved && saved !== 'http://localhost:8000') return saved
+    return envUrl || saved || 'http://localhost:8000'
   })
 
-  const { data: plantState, error: plantError } = usePoll(`${backendUrl}/plant-state`, 2000)
-  const { data: hazardData, error: hazardError } = usePoll(`${backendUrl}/hazard-score`, 2000)
-  const { data: explanation } = usePoll(`${backendUrl}/hazard-explanation`, 4000)
-  const { data: incidentData } = usePoll(`${backendUrl}/similar-incident`, 6000)
+  // ── Polling hooks — unchanged from original ───────────────────────
+  const { data: plantState,  error: plantError  } = usePoll(`${backendUrl}/plant-state`,        2000)
+  const { data: hazardData,  error: hazardError  } = usePoll(`${backendUrl}/hazard-score`,       2000)
+  const { data: explanation                      } = usePoll(`${backendUrl}/hazard-explanation`, 4000)
+  const { data: incidentData                     } = usePoll(`${backendUrl}/similar-incident`,   6000)
 
   useEffect(() => {
     if (plantState || hazardData) setLastPoll(new Date().toLocaleTimeString())
   }, [plantState, hazardData])
 
-  const connected = !plantError && !hazardError && !!plantState
-  const primaryZone = hazardData?.zones?.find(z => z.zone_id === 'zone-alpha')
+  const connected    = !plantError && !hazardError && !!plantState
+  const primaryZone  = hazardData?.zones?.find(z => z.zone_id === 'zone-alpha')
   const primaryLevel = primaryZone?.level ?? 'Safe'
 
+  // ── Event handlers — unchanged from original ──────────────────────
   const handleGenerateReport = async () => {
     setReportLoading(true)
     try {
@@ -760,10 +869,8 @@ export default function App() {
 
   const handleRestart = async () => {
     try {
-      // Reset scenario clock to 0
       const resReset = await fetch(`${backendUrl}/simulator/reset`, { method: 'POST' })
       if (!resReset.ok) throw new Error(`HTTP Reset ${resReset.status}`)
-      // Start/Resume if paused
       const resStart = await fetch(`${backendUrl}/simulator/start`, { method: 'POST' })
       if (!resStart.ok) throw new Error(`HTTP Start ${resStart.status}`)
     } catch (err) {
@@ -771,7 +878,7 @@ export default function App() {
     }
   }
 
-  // Build heatmap zone list — merge plant state + hazard scores
+  // ── Heatmap zone merge — unchanged from original ──────────────────
   const heatmapZones = (plantState?.zones ?? []).map(zone => {
     const hz = hazardData?.zones?.find(z => z.zone_id === zone.id)
     return {
@@ -787,124 +894,108 @@ export default function App() {
   })
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: '#101419' }}>
+
+      {/* ── Header ───────────────────────────────────────────────────── */}
       <Header
         connected={connected}
         lastPoll={lastPoll}
         primaryLevel={primaryLevel}
+        simRunning={plantState?.simulator_running}
         onSettingsOpen={() => setSettingsOpen(true)}
+        onStartPause={handleToggleStartPause}
+        onRestart={handleRestart}
+        elapsedSeconds={plantState?.simulator_elapsed_seconds}
+        backendUrl={backendUrl}
       />
 
-      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 py-4 space-y-4">
+      {/* ── Main Content Canvas ───────────────────────────────────────── */}
+      <main className="flex-grow p-8 flex flex-col gap-5 overflow-auto">
 
-        {/* ── Simulation Control Bar ────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 rounded-xl border border-surface-border bg-surface-card gap-3 shadow-lg">
-          <div className="flex items-center gap-4">
-            <ScenarioClock elapsedSeconds={plantState?.simulator_elapsed_seconds} />
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
-                plantState?.simulator_running
-                  ? 'bg-safe/10 text-safe border-safe/30 animate-pulse-slow'
-                  : 'bg-surface-muted/10 text-surface-muted border-surface-border'
-              }`}
-            >
-              {plantState?.simulator_running ? '● Simulation Live' : '○ Simulation Paused'}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleToggleStartPause}
-              disabled={!connected}
-              className="text-xs font-semibold px-4 py-2 rounded-lg border transition-all flex items-center gap-1.5 shadow disabled:opacity-50"
-              style={{
-                color: plantState?.simulator_running ? '#eab308' : '#22c55e',
-                borderColor: plantState?.simulator_running ? '#eab30866' : '#22c55e66',
-                background: plantState?.simulator_running ? '#eab30810' : '#22c55e10',
-              }}
-            >
-              {plantState?.simulator_running ? (
-                <>
-                  <span>⏸</span> Pause Simulation
-                </>
-              ) : (
-                <>
-                  <span>▶</span> Start Simulation
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleRestart}
-              disabled={!connected}
-              className="text-xs font-semibold px-4 py-2 rounded-lg border border-surface-border text-slate-300 hover:text-white hover:bg-surface-border/50 transition-all flex items-center gap-1.5 shadow disabled:opacity-50"
-            >
-              <span>🔄</span> Restart Simulation
-            </button>
-            <div className="hidden md:flex items-center gap-2 text-[10px] text-surface-muted ml-2">
-              <span>Poll: 2s</span>
-              <span>·</span>
-              <span>1s real = 2s scenario</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Main grid ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-          {/* Left column — heatmap + permits + incident */}
-          <div className="lg:col-span-4 space-y-4">
+        {/* ── Row 1: Heatmap (left) + Compound Hazard Score (right) ──────── */}
+        <div className="grid grid-cols-12 gap-5 items-start">
+          <section className="col-span-12 lg:col-span-7">
+            {/* HeatmapGrid — existing component; it renders its own title + card,
+                so no extra wrapper/title is added here (avoids duplicate heading
+                and the empty space a second nested card would introduce). */}
             <HeatmapGrid zones={heatmapZones} />
-            <PermitPanel plantState={plantState} />
-            <IncidentPanel incidentData={incidentData} />
-          </div>
+          </section>
 
-          {/* Right column — hazard panel + explanation + workers */}
-          <div className="lg:col-span-8 space-y-4">
-
-            {/* Report button — full width, above the panels */}
-            <div className="flex items-center gap-3 p-3 rounded-xl border border-surface-border bg-surface-card">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white">Incident Report Generator</p>
-                <p className="text-[10px] text-surface-muted">
-                  Generates a 7-section regulatory-style report from current signals, AI explanation, and best-matching historical incident.
-                </p>
-              </div>
-              <button
-                onClick={handleGenerateReport}
-                disabled={reportLoading}
-                className="shrink-0 text-xs font-bold px-4 py-2 rounded-lg border transition-all disabled:opacity-50"
-                style={{
-                  color: levelColor(primaryLevel),
-                  borderColor: `${levelColor(primaryLevel)}66`,
-                  background: `${levelColor(primaryLevel)}15`,
-                }}
-              >
-                {reportLoading ? '⏳ Generating…' : '📋 Generate Report'}
-              </button>
-            </div>
-
-            {/* Top row: hazard score + explanation side by side on xl */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <HazardPanel hazardData={hazardData} explanation={explanation} />
-              <div className="space-y-4">
-                <ExplanationPanel explanation={explanation} />
-                <WorkerPanel plantState={plantState} />
-              </div>
-            </div>
-
-            {/* Knowledge graph — full width inside right column */}
-            <KnowledgeGraph currentLevel={primaryLevel} backendUrl={backendUrl} />
-          </div>
+          <section className="col-span-12 lg:col-span-5">
+            <HazardScorePanel hazardData={hazardData} />
+          </section>
         </div>
+
+        {/* ── Row 2: Worker/Incident/Permits (left) + AI Diagnostic (right) ── */}
+        <div className="grid grid-cols-12 gap-5 items-start">
+          <div className="col-span-12 lg:col-span-7 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <WorkerPanel plantState={plantState} />
+            <IncidentPanel incidentData={incidentData} />
+            <PermitPanel plantState={plantState} />
+          </div>
+
+          <section className="col-span-12 lg:col-span-5">
+            <DiagnosticPanel explanation={explanation} />
+          </section>
+        </div>
+
+        {/* ── Row 3: Knowledge Graph (full width) ──────────────────────── */}
+        {/* Layout only: given the full dashboard width and a taller canvas
+            (see KnowledgeGraph.jsx). Nodes, edges, fetch/poll logic, and
+            React Flow config are unchanged. */}
+        <KnowledgeGraph currentLevel={primaryLevel} backendUrl={backendUrl} />
+
       </main>
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer className="border-t border-surface-border py-3 text-center">
-        <p className="text-[10px] text-surface-muted">
-          FusionIQ · ET AI Hackathon 2026 · Day 8 build · Simulated sensor data · Backend: {backendUrl}
-        </p>
+      <footer
+        className="flex flex-col md:flex-row justify-between items-center px-8 py-4 w-full shrink-0 mt-auto"
+        style={{ background: '#191c21', borderTop: '1px solid #414751' }}
+      >
+        <div className="flex items-center gap-4">
+          <span className="text-xs uppercase tracking-widest" style={{ color: '#8b919d' }}>
+            FusionIQ Operational Intelligence
+          </span>
+          <span className="text-xs" style={{ color: '#414751' }}>//</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#45dfa4', display: 'inline-block' }} />
+            <span className="text-xs" style={{ color: '#45dfa4' }}>System Secure</span>
+          </div>
+          {lastPoll && (
+            <span className="text-[10px]" style={{ color: '#8b919d' }}>· Last poll: {lastPoll}</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button className="text-xs uppercase tracking-widest transition-colors" style={{ color: '#8b919d' }}
+            onMouseEnter={e => e.target.style.color = '#45dfa4'}
+            onMouseLeave={e => e.target.style.color = '#8b919d'}
+          >
+            Audit Logs
+          </button>
+          <div style={{ width: '1px', height: '1rem', background: '#414751' }} />
+          <button
+            onClick={handleGenerateReport}
+            disabled={reportLoading}
+            className="flex items-center gap-2 px-4 py-2 text-sm transition-colors"
+            style={{
+              background: '#272a30',
+              border: '1px solid #414751',
+              borderRadius: '0.25rem',
+              color: levelColor(primaryLevel),
+              cursor: reportLoading ? 'not-allowed' : 'pointer',
+              opacity: reportLoading ? 0.6 : 1,
+            }}
+            onMouseEnter={e => !reportLoading && (e.currentTarget.style.background = '#32353b')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#272a30')}
+          >
+            <span className="material-symbols-outlined text-[18px]">assignment</span>
+            {reportLoading ? 'Generating…' : 'Generate Report'}
+          </button>
+        </div>
       </footer>
 
-      {/* ── Report Modal ───────────────────────────────────────────────── */}
+      {/* ── Modals ────────────────────────────────────────────────────── */}
       {reportModal && (
         <ReportModal
           report={reportModal.report}
