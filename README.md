@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://fusioniq-backend.onrender.com/docs">
+  <a href="https://fusioniq-backend-vrwf.onrender.com/docs">
     <img src="https://img.shields.io/badge/API_Docs-Backend_on_Render-009688?style=for-the-badge&logo=fastapi" alt="API Docs">
   </a>
   <a href="#tech-stack">
